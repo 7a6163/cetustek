@@ -7,6 +7,9 @@ Cetustek is a Ruby gem designed for handling electronic invoice operations, incl
 - Electronic invoice cancellation
 - XML format generation
 - SOAP Web Services integration
+- Environment-specific configuration (sandbox/production)
+- Service-oriented architecture
+- Robust error handling
 
 ## Installation
 
@@ -27,11 +30,15 @@ bundle install
 Configure Cetustek in your application:
 
 ```ruby
+# config/initializers/cetustek.rb
 Cetustek.configure do |config|
-  config.url = 'YOUR_SERVICE_URL'
-  config.site_id = 'YOUR_SITE_ID'
-  config.username = 'YOUR_USERNAME'
-  config.password = 'YOUR_PASSWORD'
+  # Set environment (:production or :sandbox)
+  config.environment = Rails.env.production? ? :production : :sandbox
+  
+  # Set authentication credentials
+  config.site_id = ENV['CETUSTEK_SITE_ID']
+  config.username = ENV['CETUSTEK_USERNAME']
+  config.password = ENV['CETUSTEK_PASSWORD']
 end
 ```
 
@@ -41,8 +48,23 @@ end
 
 ```ruby
 invoice = YourInvoiceModel.find(invoice_id)
-cancel_invoice = Cetustek::CancelInvoice.new(invoice)
-cancel_invoice.execute
+invoice_data = Cetustek::Models::InvoiceData.new(
+  order_id: invoice.order_id,
+  order_date: Time.zone.today,
+  buyer_identifier: invoice.receipt,
+  buyer_name: invoice.name,
+  buyer_email: invoice.email,
+  items: invoice.items.map { |item| 
+    Cetustek::Models::InvoiceItem.new(
+      code: item.sku,
+      name: item.name,
+      quantity: item.quantity,
+      unit_price: item.price
+    )
+  }
+)
+
+result = Cetustek::CreateInvoice.new(invoice_data).execute
 ```
 
 ## Development
@@ -64,6 +86,10 @@ cancel_invoice.execute
 3. Commit your changes (`git commit -am 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/). See the [CHANGELOG.md](CHANGELOG.md) file for version details.
 
 ## License
 
