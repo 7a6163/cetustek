@@ -1,35 +1,70 @@
 # Cetustek
 
-TODO: Delete this and the text below, and describe your gem
+Cetustek is a Ruby gem designed for handling electronic invoice operations, including invoice cancellation. It communicates with the e-invoice system through SOAP Web Services.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/cetustek`. To experiment with that code, run `bin/console` for an interactive prompt.
+## Features
+
+- Electronic invoice cancellation
+- XML format generation
+- SOAP Web Services integration
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+Add this line to your application's Gemfile:
 
-Install the gem and add to the application's Gemfile by executing:
-
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```ruby
+gem 'cetustek'
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+Then execute:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle install
+```
+
+## Configuration
+
+Configure Cetustek in your application:
+
+```ruby
+Cetustek.configure do |config|
+  config.url = 'YOUR_SERVICE_URL'
+  config.site_id = 'YOUR_SITE_ID'
+  config.username = 'YOUR_USERNAME'
+  config.password = 'YOUR_PASSWORD'
+end
 ```
 
 ## Usage
 
-TODO: Write usage instructions here
+### Cancel an Invoice
+
+```ruby
+invoice = YourInvoiceModel.find(invoice_id)
+cancel_invoice = Cetustek::CancelInvoice.new(invoice)
+cancel_invoice.execute
+```
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+1. Clone this repository
+2. Run `bin/setup` to install dependencies
+3. Run `bin/console` for an interactive prompt to experiment
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+## Requirements
+
+- Ruby >= 2.7.0
+- `ox` gem for XML processing
+- `savon` gem for SOAP services
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/cetustek.
+1. Fork this project
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -am 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This gem is available as open source under the terms of the MIT License.
