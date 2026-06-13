@@ -6,4 +6,6 @@
 /pkg/
 /spec/reports/
 /tmp/
+/vendor/
+.rspec_status
 Gemfile.lock
