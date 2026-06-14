@@ -12,6 +12,7 @@ SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new([
 SimpleCov.start do
   add_filter '/spec/'
   add_filter '/vendor/'
+  minimum_coverage 85
 end
 
 require 'cetustek'
