@@ -1,5 +1,6 @@
 # Cetustek
 
+[![Gem Version](https://img.shields.io/gem/v/cetustek)](https://rubygems.org/gems/cetustek)
 [![RSpec Tests](https://github.com/7a6163/cetustek/actions/workflows/rspec.yml/badge.svg)](https://github.com/7a6163/cetustek/actions/workflows/rspec.yml)
 [![codecov](https://codecov.io/gh/7a6163/cetustek/graph/badge.svg?token=N951Y9SE15)](https://codecov.io/gh/7a6163/cetustek)
 
