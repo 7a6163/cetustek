@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-29
+
+### Added
+- `Cetustek::QueryInvoice.query(invoice_number, invoice_year)` — 查詢發票資訊 (§2.4)
+- `Cetustek::QueryInvoiceNumberByOrderId.query(order_id)` — 以訂單編號查發票號碼 (§2.6)
+- `Cetustek::CreateAllowance.new(allowance_data, check_allowance:).execute` — 開立折讓單 (§2.9)
+- `Cetustek::CancelAllowance.new(allowance_number, reason).execute` — 作廢折讓單 (§2.10)
+- `Cetustek::QueryAllowance.query(allowance_number)` — 查詢折讓資料 (§2.11)
+- `Cetustek::PhoneBarcode.valid?(phone_code)` — 手機條碼驗證 (§3.1, HTTP/JSON, not SOAP)
+- `Cetustek::Models::AllowanceData` value object and an optional `unit` on `InvoiceItem`
+
+### Changed
+- `hastax` is now taken from the order via `InvoiceData.new(hastax:)` (default `1`,
+  tax-inclusive) instead of being hardcoded — e.g. tax-exclusive/tax-free purchases
+  can send `0`
+- All generated XML is forced to UTF-8 encoding, preventing `Encoding::CompatibilityError`
+  from Savon when invoices/allowances contain Chinese text
+
 ## [0.3.0] - 2026-06-13
 
 ### Added

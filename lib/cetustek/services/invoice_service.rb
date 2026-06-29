@@ -6,9 +6,10 @@ require 'logger'
 module Cetustek
   module Services
     class InvoiceService
-      def initialize(xml, order_id = nil)
+      def initialize(xml, order_id = nil, hastax = 1)
         @xml = xml
         @order_id = order_id
+        @hastax = hastax
       end
 
       def create
@@ -33,7 +34,7 @@ module Cetustek
           invoicexml: @xml,
           source: Cetustek.config.site_id + Cetustek.config.password,
           rentid: Cetustek.config.username,
-          hastax: 1
+          hastax: @hastax
         })
       end
 

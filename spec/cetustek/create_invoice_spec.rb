@@ -12,7 +12,7 @@ RSpec.describe Cetustek::CreateInvoice do
     allow(Cetustek::Services::InvoiceXmlBuilder).to receive(:new).with(invoice_data).and_return(builder)
 
     service = instance_double(Cetustek::Services::InvoiceService, create: response)
-    allow(Cetustek::Services::InvoiceService).to receive(:new).with('<xml/>', 'ORD1').and_return(service)
+    allow(Cetustek::Services::InvoiceService).to receive(:new).with('<xml/>', 'ORD1', 1).and_return(service)
 
     handler = instance_double(Cetustek::Services::ResponseHandler, process: result)
     allow(Cetustek::Services::ResponseHandler).to receive(:new)

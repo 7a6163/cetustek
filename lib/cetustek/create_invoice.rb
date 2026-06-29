@@ -13,7 +13,7 @@ module Cetustek
 
     def execute
       xml = Services::InvoiceXmlBuilder.new(@invoice_data).build
-      response = Services::InvoiceService.new(xml, @invoice_data.order_id).create
+      response = Services::InvoiceService.new(xml, @invoice_data.order_id, @invoice_data.hastax).create
       result = Services::ResponseHandler.new(response, @invoice_data, xml).process
       
       if defined?(Rails) && result[:number] && result[:random_number]

@@ -42,7 +42,7 @@ module Cetustek
       invoice << Ox::Raw.new("<InvoiceNumber>#{@invoice.number}</InvoiceNumber>")
       invoice << Ox::Raw.new("<InvoiceYear>#{@invoice.created_at.year}</InvoiceYear>")
       invoice << Ox::Raw.new('<Remark>退貨</Remark>')
-      @xml = Ox.dump(doc)
+      @xml = Ox.dump(doc).force_encoding('UTF-8')
     end
 
     def analize_response

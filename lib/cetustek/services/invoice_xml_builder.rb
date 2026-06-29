@@ -15,7 +15,7 @@ module Cetustek
         doc << create_xml_instruct
         doc << create_invoice_element
 
-        Ox.dump(doc)
+        Ox.dump(doc).force_encoding('UTF-8')
       end
 
       private
