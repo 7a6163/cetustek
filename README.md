@@ -133,10 +133,47 @@ Cetustek::Models::InvoiceItem.new(code: 'DISCOUNT', name: '折抵', quantity: 1,
 Cetustek::CancelInvoice.new(invoice).execute
 ```
 
-### Query an Invoice by Order ID
+### Query invoices
 
 ```ruby
-response = Cetustek::QueryInvoiceByOrderId.query(order_id)
+Cetustek::QueryInvoiceByOrderId.query(order_id)             # by order id
+Cetustek::QueryInvoice.query(invoice_number, invoice_year)  # by invoice number + year
+Cetustek::QueryInvoiceNumberByOrderId.query(order_id)       # just the invoice number
+```
+
+### Tax-inclusive vs tax-exclusive prices (`hastax`)
+
+`hastax` comes from the order, not a fixed value: `1` (default) means the item
+`unit_price`s already include tax; `0` means they are tax-exclusive (e.g. a tax-free
+purchase). Set it on `InvoiceData`:
+
+```ruby
+Cetustek::Models::InvoiceData.new(hastax: 0, items: [...])
+```
+
+### Allowances (折讓單)
+
+```ruby
+allowance = Cetustek::Models::AllowanceData.new(
+  allowance_number: 'AA20240216000001',
+  allowance_date: Time.zone.today,
+  invoice_number: 'AA10000000',
+  invoice_year: '2024',
+  tax_type: 1,
+  reason: '退回',
+  items: [
+    Cetustek::Models::InvoiceItem.new(code: '0001', name: '禮券', quantity: 1, unit: '本', unit_price: 800)
+  ]
+)
+Cetustek::CreateAllowance.new(allowance).execute              # => "A0" on success
+Cetustek::CancelAllowance.new('AA20240216000001', '明細錯誤').execute # => "C0" on success
+Cetustek::QueryAllowance.query('AA20240216000001')
+```
+
+### Mobile barcode validation (手機條碼)
+
+```ruby
+Cetustek::PhoneBarcode.valid?('/ABC123')  # => true / false
 ```
 
 ## Development

@@ -19,7 +19,7 @@ module Cetustek
       attr_reader :order_id, :order_date, :buyer_identifier, :buyer_name,
                   :buyer_email, :donate_mark, :carrier_type, :carrier_id,
                   :carrier_id2, :npo_ban, :items, :payment_type,
-                  :tax_type, :tax_rate, :invoice_type
+                  :tax_type, :tax_rate, :invoice_type, :hastax
 
       def initialize(attributes = {})
         @order_id = attributes[:order_id]
@@ -37,6 +37,9 @@ module Cetustek
         @tax_type = attributes[:tax_type] || TaxType::TAXABLE
         @tax_rate = attributes.fetch(:tax_rate, DEFAULT_TAX_RATE)
         @invoice_type = attributes[:invoice_type] || DEFAULT_INVOICE_TYPE
+        # hastax: 0 = item prices are tax-exclusive, 1 = tax-inclusive.
+        # Comes from the order (e.g. tax-free purchases), not a fixed value.
+        @hastax = attributes.fetch(:hastax, 1)
       end
 
       # 混合稅率發票 (限收銀機)：每筆明細需標註 DType。
@@ -53,13 +56,14 @@ module Cetustek
         tax_free: 'TN'   # 免稅商品
       }.freeze
 
-      attr_reader :code, :name, :quantity, :unit_price, :tax_type
+      attr_reader :code, :name, :quantity, :unit_price, :tax_type, :unit
 
       def initialize(attributes = {})
         @code = attributes[:code]
         @name = attributes[:name]
         @quantity = attributes[:quantity]
         @unit_price = attributes[:unit_price]
+        @unit = attributes[:unit]
         @tax_type = attributes[:tax_type] || :taxable
       end
 
