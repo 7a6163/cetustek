@@ -48,6 +48,12 @@ RSpec.describe Cetustek::Services::InvoiceXmlBuilder do
     end
   end
 
+  describe 'DonateMark' do
+    it 'passes the donate_mark code through to <DonateMark>' do
+      expect(build(donate_mark: Cetustek::DonateMark::DONATE)).to include('<DonateMark>1</DonateMark>')
+    end
+  end
+
   describe 'InvoiceType' do
     it 'defaults to 07 (general)' do
       expect(build).to include('<InvoiceType>07</InvoiceType>')

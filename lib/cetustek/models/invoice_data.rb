@@ -35,6 +35,14 @@ module Cetustek
     COIN_CARD = 'Z'   # 銀角零卡
   end
 
+  # DonateMark (捐贈註記) codes for CreateInvoiceV3, spec AVM-26-03 Table 1.
+  # Convenience constants only — InvoiceData#donate_mark still accepts any raw value.
+  module DonateMark
+    CARRIER = 0 # 載具
+    DONATE = 1  # 捐贈
+    PAPER = 2   # 紙本
+  end
+
   module Models
     class InvoiceData
       DEFAULT_TAX_RATE = 0.05

@@ -134,6 +134,11 @@ Cetustek::Models::InvoiceData.new(
 | | | | `QUAN_PAY` | `X` |
 | | | | `COIN_CARD` | `Z` |
 
+### Donation mark (`donate_mark` / DonateMark)
+
+`donate_mark` accepts any raw code, or use `Cetustek::DonateMark`:
+`CARRIER` (0, 載具), `DONATE` (1, 捐贈), `PAPER` (2, 紙本).
+
 ### Discounts and fees
 
 The gem is a faithful wrapper of the API's invoice detail format, so it has no
