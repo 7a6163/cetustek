@@ -42,6 +42,12 @@ RSpec.describe Cetustek::Services::InvoiceXmlBuilder do
     end
   end
 
+  describe 'PayWay' do
+    it 'passes the payment_type code through to <PayWay>' do
+      expect(build(payment_type: Cetustek::PayWay::LINE_PAY)).to include('<PayWay>L</PayWay>')
+    end
+  end
+
   describe 'InvoiceType' do
     it 'defaults to 07 (general)' do
       expect(build).to include('<InvoiceType>07</InvoiceType>')

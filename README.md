@@ -116,6 +116,24 @@ Cetustek::Models::InvoiceData.new(
 )
 ```
 
+### Payment method (`payment_type` / PayWay)
+
+`payment_type` accepts any raw code, or use `Cetustek::PayWay` for readability
+(`payment_type: Cetustek::PayWay::LINE_PAY`):
+
+| Constant | Code | | Constant | Code |
+|----------|------|-|----------|------|
+| `CASH` | 1 | | `GOOGLE_PAY` | `G` |
+| `ATM` | 2 | | `JKO_PAY` | `J` |
+| `CREDIT_CARD` | 3 | | `LINE_PAY` | `L` |
+| `CVS` | 4 | | `PI_WALLET` | `P` |
+| `OTHER` | 5 | | `SAMSUNG_PAY` | `S` |
+| `E_PAYMENT` | 6 | | `TAIWAN_PAY` | `T` |
+| `APPLE_PAY` | `A` | | `EASY_WALLET` | `U` |
+| `AFTEE` | `E` | | `PX_PAY` | `W` |
+| | | | `QUAN_PAY` | `X` |
+| | | | `COIN_CARD` | `Z` |
+
 ### Discounts and fees
 
 The gem is a faithful wrapper of the API's invoice detail format, so it has no
