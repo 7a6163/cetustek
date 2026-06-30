@@ -11,6 +11,54 @@ module Cetustek
     MIXED = 9              # 混合(應稅、零稅率與免稅，限收銀機類型發票)
   end
 
+  # PayWay (付款方式) codes for CreateInvoiceV3, spec AVM-26-03 Table 4.
+  # Codes are mixed: 1-6 are integers, A-Z are strings. Convenience constants
+  # only — InvoiceData#payment_type still accepts any raw value.
+  module PayWay
+    CASH = 1          # 現金
+    ATM = 2           # ATM
+    CREDIT_CARD = 3   # 信用卡
+    CVS = 4           # 超商代收
+    OTHER = 5         # 其他
+    E_PAYMENT = 6     # 電子支付
+    APPLE_PAY = 'A'   # Apple Pay
+    AFTEE = 'E'       # 先享後付 Aftee
+    GOOGLE_PAY = 'G'  # Google Pay
+    JKO_PAY = 'J'     # 街口支付
+    LINE_PAY = 'L'    # Line Pay
+    PI_WALLET = 'P'   # Pi 拍錢包、慢點付
+    SAMSUNG_PAY = 'S' # Samsung Pay
+    TAIWAN_PAY = 'T'  # 台灣 Pay
+    EASY_WALLET = 'U' # 悠遊付
+    PX_PAY = 'W'      # 全盈+PAY
+    QUAN_PAY = 'X'    # 全支付
+    COIN_CARD = 'Z'   # 銀角零卡
+  end
+
+  # PayWay (付款方式) codes for CreateInvoiceV3, spec AVM-26-03 Table 4.
+  # Codes are mixed: 1-6 are integers, A-Z are strings. These are convenience
+  # constants only; InvoiceData#payment_type still accepts any raw value.
+  module PayWay
+    CASH = 1          # 現金
+    ATM = 2           # ATM
+    CREDIT_CARD = 3   # 信用卡
+    CVS = 4           # 超商代收
+    OTHER = 5         # 其他
+    E_PAYMENT = 6     # 電子支付
+    APPLE_PAY = 'A'   # Apple Pay
+    AFTEE = 'E'       # 先享後付 Aftee
+    GOOGLE_PAY = 'G'  # Google Pay
+    JKO_PAY = 'J'     # 街口支付
+    LINE_PAY = 'L'    # Line Pay
+    PI_WALLET = 'P'   # Pi 拍錢包、慢點付
+    SAMSUNG_PAY = 'S' # Samsung Pay
+    TAIWAN_PAY = 'T'  # 台灣 Pay
+    EASY_WALLET = 'U' # 悠遊付
+    PX_PAY = 'W'      # 全盈+PAY
+    QUAN_PAY = 'X'    # 全支付
+    COIN_CARD = 'Z'   # 銀角零卡
+  end
+
   module Models
     class InvoiceData
       DEFAULT_TAX_RATE = 0.05
