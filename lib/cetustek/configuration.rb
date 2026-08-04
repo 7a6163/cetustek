@@ -2,7 +2,8 @@
 
 module Cetustek
   class Configuration
-    attr_accessor :environment, :site_id, :username, :password
+    # logger is opt-in: nil means this gem writes nothing anywhere.
+    attr_accessor :environment, :site_id, :username, :password, :logger
 
     def initialize
       @environment = :sandbox

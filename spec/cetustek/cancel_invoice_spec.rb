@@ -4,7 +4,6 @@ require 'spec_helper'
 
 RSpec.describe Cetustek::CancelInvoice do
   let(:client) { instance_double(Savon::Client) }
-  let(:invoice) { double('invoice', number: 'AB12345678', created_at: Date.new(2024, 1, 2)) }
 
   before do
     Cetustek.configure do |c|
@@ -14,7 +13,6 @@ RSpec.describe Cetustek::CancelInvoice do
       c.password = 'PASS'
     end
     allow(Savon).to receive(:client).and_return(client)
-    allow(invoice).to receive(:update)
   end
 
   def stub_return(value)
@@ -24,26 +22,45 @@ RSpec.describe Cetustek::CancelInvoice do
 
   it 'calls cancel_invoice with the invoice XML and encoded credentials' do
     stub_return('C0')
-    described_class.new(invoice).execute
+    expect(described_class.new('AB12345678', 2024).execute).to eq('C0')
 
     expect(client).to have_received(:call) do |operation, message:|
       expect(operation).to eq(:cancel_invoice)
       expect(message[:invoicexml]).to include('<InvoiceNumber>AB12345678</InvoiceNumber>')
       expect(message[:invoicexml]).to include('<InvoiceYear>2024</InvoiceYear>')
+      expect(message[:invoicexml]).to include('<Remark>退貨</Remark>')
       expect(message[:source]).to eq('SITEPASS')
       expect(message[:rentid]).to eq('USER')
     end
   end
 
-  it 'marks the invoice canceled when the return code is C0' do
+  it 'omits ReturnTaxDocumentNumber unless the cancellation is past the filing period' do
     stub_return('C0')
-    described_class.new(invoice).execute
-    expect(invoice).to have_received(:update).with(canceled: true)
+    described_class.new('AB12345678', 2024).execute
+    expect(client).to have_received(:call) do |_op, message:|
+      expect(message[:invoicexml]).not_to include('ReturnTaxDocumentNumber')
+    end
   end
 
-  it 'does not mark the invoice canceled for any other return code' do
+  it 'sends the 專案作廢核准文號 when given' do
+    stub_return('C0')
+    described_class.new('AB12345678', 2024, return_tax_document_number: '65327645').execute
+    expect(client).to have_received(:call) do |_op, message:|
+      expect(message[:invoicexml]).to include('<ReturnTaxDocumentNumber>65327645</ReturnTaxDocumentNumber>')
+    end
+  end
+
+  it 'accepts a custom 作廢原因 and rejects a blank one' do
+    stub_return('C0')
+    described_class.new('AB12345678', 2024, remark: '明細錯誤').execute
+    expect(client).to have_received(:call) { |_op, message:| expect(message[:invoicexml]).to include('明細錯誤') }
+
+    expect { described_class.new('AB12345678', 2024, remark: '') }.to raise_error(ArgumentError, /remark/)
+  end
+
+  it 'raises ResultError with the documented message on failure' do
     stub_return('C5')
-    described_class.new(invoice).execute
-    expect(invoice).not_to have_received(:update)
+    expect { described_class.new('AB12345678', 2024).execute }
+      .to raise_error(Cetustek::ResultError, /C5 - 該發票已經作廢過/)
   end
 end

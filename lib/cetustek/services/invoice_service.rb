@@ -1,48 +1,27 @@
 # frozen_string_literal: true
 
 require 'savon'
-require 'logger'
 
 module Cetustek
   module Services
+    # 2.1 CreateInvoiceV3(invoicexml, hastax, rentid, source)
     class InvoiceService
-      def initialize(xml, order_id = nil, hastax = 1)
+      def initialize(xml, hastax = 1)
         @xml = xml
-        @order_id = order_id
         @hastax = hastax
       end
 
       def create
-        client = build_soap_client
-        response = call_create_invoice(client)
-        log_response(response)
-        response
-      end
-
-      private
-
-      def build_soap_client
         Savon.client(
           wsdl: Cetustek.config.url,
           open_timeout: 300,
           read_timeout: 300
-        )
-      end
-
-      def call_create_invoice(client)
-        client.call(:create_invoice_v3, message: {
-          invoicexml: @xml,
-          source: Cetustek.config.site_id + Cetustek.config.password,
-          rentid: Cetustek.config.username,
-          hastax: @hastax
-        })
-      end
-
-      def log_response(response)
-        return unless defined?(Rails)
-
-        logger = Logger.new(Rails.root.join('log/invoice.log'))
-        logger.debug("#{@order_id} - #{response.body}") if @order_id
+        ).call(:create_invoice_v3, message: {
+                 invoicexml: @xml,
+                 source: Cetustek.config.site_id + Cetustek.config.password,
+                 rentid: Cetustek.config.username,
+                 hastax: @hastax
+               })
       end
     end
   end

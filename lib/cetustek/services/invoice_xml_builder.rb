@@ -46,6 +46,12 @@ module Cetustek
         invoice
       end
 
+      # Fields whose 備註 says "若未填，預設 X" are omitted entirely when nil, so
+      # the platform applies its own default instead of parsing an empty value.
+      def optional_tag(invoice, name, value)
+        invoice << raw_tag(name, value) unless value.nil?
+      end
+
       def add_basic_info(invoice)
         invoice << raw_tag('OrderId', @data.order_id)
         invoice << raw_tag('OrderDate', @data.order_date.strftime('%Y/%m/%d'))
@@ -54,19 +60,29 @@ module Cetustek
       def add_buyer_info(invoice)
         invoice << raw_tag('BuyerIdentifier', @data.buyer_identifier)
         invoice << raw_tag('BuyerName', @data.buyer_name)
+        invoice << raw_tag('BuyerAddress', @data.buyer_address)
+        invoice << raw_tag('BuyerPersonInCharge', @data.buyer_person_in_charge)
+        invoice << raw_tag('BuyerTelephoneNumber', @data.buyer_telephone)
+        invoice << raw_tag('BuyerFacsimileNumber', @data.buyer_facsimile)
         invoice << raw_tag('BuyerEmailAddress', @data.buyer_email)
+        invoice << raw_tag('BuyerCustomerNumber', @data.buyer_customer_number)
       end
 
       def add_invoice_type_info(invoice)
         invoice << raw_tag('DonateMark', @data.donate_mark)
         invoice << raw_tag('InvoiceType', @data.invoice_type)
         invoice << raw_tag('CarrierType', @data.carrier_type)
-        invoice << raw_tag('CarrierId1', @data.carrier_id)
+        invoice << raw_tag('CarrierId1', @data.carrier_id1)
         invoice << raw_tag('CarrierId2', @data.carrier_id2)
         invoice << raw_tag('NPOBAN', @data.npo_ban)
         invoice << raw_tag('TaxType', @data.tax_type)
         invoice << raw_tag('TaxRate', @data.tax_rate)
+        optional_tag(invoice, 'ZeroReason', @data.zero_reason)
         invoice << raw_tag('PayWay', @data.payment_type)
+        invoice << raw_tag('Remark', @data.remark)
+        optional_tag(invoice, 'MailSend', @data.mail_send)
+        optional_tag(invoice, 'RoundNum', @data.round_num)
+        optional_tag(invoice, 'RtnMsg', @data.rtn_msg)
       end
 
       def add_details(invoice)
@@ -83,6 +99,7 @@ module Cetustek
         product << raw_tag('ProductionCode', item.code)
         product << raw_tag('Description', item.name)
         product << raw_tag('Quantity', item.quantity)
+        product << raw_tag('Unit', item.unit)
         product << raw_tag('UnitPrice', item.unit_price)
         add_dtype(product, item.d_type)
         product

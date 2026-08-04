@@ -4,16 +4,10 @@ require 'spec_helper'
 
 RSpec.describe Cetustek::Services::InvoiceXmlBuilder do
   def build(overrides = {})
-    items = overrides.delete(:items) || [
-      Cetustek::Models::InvoiceItem.new(code: 'A1', name: 'Item', quantity: 1, unit_price: 100)
-    ]
-    data = Cetustek::Models::InvoiceData.new({
-      order_id: 'ORD1',
-      order_date: Date.new(2024, 1, 2),
+    data = invoice_data({
       buyer_identifier: '12345678',
       buyer_name: 'Buyer',
-      buyer_email: 'buyer@example.com',
-      items: items
+      buyer_email: 'buyer@example.com'
     }.merge(overrides))
     described_class.new(data).build
   end
@@ -50,7 +44,75 @@ RSpec.describe Cetustek::Services::InvoiceXmlBuilder do
 
   describe 'DonateMark' do
     it 'passes the donate_mark code through to <DonateMark>' do
-      expect(build(donate_mark: Cetustek::DonateMark::DONATE)).to include('<DonateMark>1</DonateMark>')
+      xml = build(donate_mark: Cetustek::DonateMark::DONATE, npo_ban: '25885')
+      expect(xml).to include('<DonateMark>1</DonateMark>')
+      expect(xml).to include('<NPOBAN>25885</NPOBAN>')
+    end
+  end
+
+  describe 'detail Unit' do
+    it 'emits the item unit (Table 2)' do
+      items = [Cetustek::Models::InvoiceItem.new(code: 'A', name: 'n', quantity: 1, unit: '本', unit_price: 1)]
+      expect(build(items: items)).to include('<Unit>本</Unit>')
+    end
+  end
+
+  describe 'buyer fields' do
+    it 'emits the full Table 1 buyer block' do
+      xml = build(buyer_address: '新北市新莊區', buyer_person_in_charge: '楊小胖',
+                  buyer_telephone: '0800797899', buyer_facsimile: '02-26511024',
+                  buyer_customer_number: 'VIG01')
+      expect(xml).to include('<BuyerAddress>新北市新莊區</BuyerAddress>')
+      expect(xml).to include('<BuyerPersonInCharge>楊小胖</BuyerPersonInCharge>')
+      expect(xml).to include('<BuyerTelephoneNumber>0800797899</BuyerTelephoneNumber>')
+      expect(xml).to include('<BuyerFacsimileNumber>02-26511024</BuyerFacsimileNumber>')
+      expect(xml).to include('<BuyerCustomerNumber>VIG01</BuyerCustomerNumber>')
+    end
+  end
+
+  describe 'carrier' do
+    it 'mirrors carrier_id into CarrierId2 when only one code is given' do
+      xml = build(donate_mark: Cetustek::DonateMark::CARRIER, carrier_type: '3J0002', carrier_id: '/K.1TI+P')
+      expect(xml).to include('<CarrierId1>/K.1TI+P</CarrierId1>')
+      expect(xml).to include('<CarrierId2>/K.1TI+P</CarrierId2>')
+    end
+
+    it 'keeps an explicit CarrierId2' do
+      xml = build(donate_mark: Cetustek::DonateMark::CARRIER, carrier_type: 'EJ0011',
+                  carrier_id1: 'shown', carrier_id2: 'hidden')
+      expect(xml).to include('<CarrierId1>shown</CarrierId1>')
+      expect(xml).to include('<CarrierId2>hidden</CarrierId2>')
+    end
+  end
+
+  describe 'RtnMsg' do
+    it 'asks for the JSON return format by default' do
+      expect(build).to include('<RtnMsg>Json</RtnMsg>')
+    end
+
+    it 'omits RtnMsg when the caller opts out' do
+      expect(build(rtn_msg: nil)).not_to include('RtnMsg')
+    end
+  end
+
+  describe 'optional Table 1 fields' do
+    it 'always emits Remark, empty when unset' do
+      expect(build).to include('<Remark></Remark>')
+      expect(build(remark: '測試')).to include('<Remark>測試</Remark>')
+    end
+
+    it 'omits fields that have a platform-side default when unset' do
+      xml = build
+      expect(xml).not_to include('RoundNum')
+      expect(xml).not_to include('MailSend')
+      expect(xml).not_to include('ZeroReason')
+    end
+
+    it 'emits them when set' do
+      xml = build(tax_type: 2, tax_rate: 0, zero_reason: '71', round_num: 0, mail_send: 1)
+      expect(xml).to include('<ZeroReason>71</ZeroReason>')
+      expect(xml).to include('<RoundNum>0</RoundNum>')
+      expect(xml).to include('<MailSend>1</MailSend>')
     end
   end
 

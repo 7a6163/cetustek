@@ -43,6 +43,11 @@ Cetustek.configure do |config|
   config.site_id = ENV['CETUSTEK_SITE_ID']
   config.username = ENV['CETUSTEK_USERNAME']
   config.password = ENV['CETUSTEK_PASSWORD']
+
+  # Optional. Defaults to nil, i.e. this gem writes nothing anywhere.
+  # Only the order id, invoice number and result code are logged (never the
+  # response body); the request XML is logged at debug level on failure.
+  config.logger = Rails.logger
 end
 ```
 
@@ -58,21 +63,47 @@ invoice_data = Cetustek::Models::InvoiceData.new(
   buyer_identifier: invoice.receipt,
   buyer_name: invoice.name,
   buyer_email: invoice.email,
-  donate_mark: 0,
-  payment_type: 2,
+  donate_mark: Cetustek::DonateMark::CARRIER,
+  carrier_type: '3J0002',        # 手機條碼
+  carrier_id: invoice.barcode,   # CarrierId2 is mirrored automatically
+  payment_type: Cetustek::PayWay::ATM,
   items: invoice.items.map { |item|
     Cetustek::Models::InvoiceItem.new(
       code: item.sku,
       name: item.name,
       quantity: item.quantity,
+      unit: item.unit,
       unit_price: item.price
     )
   }
 )
 
 result = Cetustek::CreateInvoice.new(invoice_data).execute
-# => { number: "GT68514542", random_number: "9654" }
+# => { number: "WB02100001", random_number: "3690",
+#      date: "2026/02/10", time: "11:19:57",
+#      sale_amount: 666, zero_amount: 0, free_amount: 0,
+#      tax_amount: 0, total_amount: 666, carrier_url: "..." }
 ```
+
+Always use the returned `:date`/`:time` as the invoice date. The platform's
+`Intertemporal` default issues invoices dated in the previous filing period on
+the 1st–2nd of a month, so the local date can be wrong.
+Persisting the result is the caller's job — this gem writes to no database.
+
+`InvoiceData.new` raises `ArgumentError` for the rules the spec fixes in print,
+so a guaranteed rejection never leaves your process:
+
+- `order_id`, `order_date` (a `Date`/`Time`), `items`, `donate_mark` and `payment_type` are required
+- `donate_mark: 0` (載具) requires `buyer_email`, `carrier_type` and `carrier_id`
+- `donate_mark: 1` (捐贈) requires a 3–7 digit `npo_ban`
+- `tax_type: 4` (特種稅率) requires an explicit `tax_rate` and `invoice_type: '08'`
+
+Anything needing an external lookup (是否為有效手機條碼、捐贈碼是否存在) is left
+to the caller — see `Cetustek::PhoneBarcode` below.
+
+Any result code other than a successful issue raises `Cetustek::ResultError`,
+whose `#code` is the raw Table 7 code and whose message carries the documented
+reason (`S7 - 訂單號碼已存在，若需重開請先作廢原發票號碼`, `D3_2 - 單價未填或格式錯誤`, …).
 
 ### Tax types (稅別)
 
@@ -149,13 +180,20 @@ items — use a negative `unit_price` for a discount:
 Cetustek::Models::InvoiceItem.new(code: 'DISCOUNT', name: '折抵', quantity: 1, unit_price: -30)
 ```
 
-### Cancel an Invoice
+### Cancel an Invoice (作廢發票確認)
 
 ```ruby
-# `invoice` responds to #number and #created_at; on success (return code "C0")
-# it is updated with canceled: true.
-Cetustek::CancelInvoice.new(invoice).execute
+Cetustek::CancelInvoice.new('AB12345678', 2024).execute                    # => "C0"
+Cetustek::CancelInvoice.new('AB12345678', 2024, remark: '明細錯誤').execute # 作廢原因，預設 '退貨'
+
+# 超過申報期間才需要專案作廢核准文號 (否則會收到 C3)
+Cetustek::CancelInvoice.new('AB12345678', 2024, return_tax_document_number: '65327645').execute
 ```
+
+Uploading is not the end of it: the cancellation still has to be confirmed
+manually on the 鯨躍 platform before the invoice counts as void. Any code other
+than `"C0"` raises `Cetustek::ResultError` (`C5 - 該發票已經作廢過`, …), and
+marking your own record as canceled is the caller's job.
 
 ### Query invoices
 
@@ -174,6 +212,23 @@ purchase). Set it on `InvoiceData`:
 ```ruby
 Cetustek::Models::InvoiceData.new(hastax: 0, items: [...])
 ```
+
+### Other Table 1 fields
+
+| Attribute | Tag | Notes |
+|-----------|-----|-------|
+| `buyer_address` / `buyer_person_in_charge` / `buyer_telephone` / `buyer_facsimile` / `buyer_customer_number` | `BuyerAddress` / `BuyerPersonInCharge` / `BuyerTelephoneNumber` / `BuyerFacsimileNumber` / `BuyerCustomerNumber` | 選填，常用於 B2B |
+| `remark` | `Remark` | 備註，200 字 |
+| `zero_reason` | `ZeroReason` | 零稅率原因;未填時平台預設 `72`(TaxType 2)或 `71`(TaxType 5) |
+| `round_num` | `RoundNum` | 金額計算位數,未填預設 4 |
+| `mail_send` | `MailSend` | `0`(預設)由加值中心寄送通知,`1` 自行處理 |
+| `rtn_msg` | `RtnMsg` | 預設 `'Json'`;傳 `nil` 退回只回傳 15 碼字串的舊模式 |
+
+Fields with a platform-side default (`ZeroReason`, `RoundNum`, `MailSend`,
+`RtnMsg`) are omitted from the XML entirely when `nil`, so the platform applies
+its own default. `Intertemporal`(發票回開)is deliberately not exposed: it changes
+which filing period's 字軌 the invoice is issued under, and the platform default
+is the right behaviour.
 
 ### Allowances (折讓單)
 

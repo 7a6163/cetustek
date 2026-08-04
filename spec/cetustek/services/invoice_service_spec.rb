@@ -18,7 +18,7 @@ RSpec.describe Cetustek::Services::InvoiceService do
   end
 
   it 'builds the Savon client against the configured WSDL with timeouts' do
-    described_class.new('<xml/>', 'ORD1').create
+    described_class.new('<xml/>').create
 
     expect(Savon).to have_received(:client).with(
       wsdl: Cetustek.config.url,
@@ -28,7 +28,7 @@ RSpec.describe Cetustek::Services::InvoiceService do
   end
 
   it 'calls create_invoice_v3 with the encoded credentials and hastax' do
-    described_class.new('<xml/>', 'ORD1').create
+    described_class.new('<xml/>').create
 
     expect(client).to have_received(:call).with(
       :create_invoice_v3,
@@ -36,21 +36,12 @@ RSpec.describe Cetustek::Services::InvoiceService do
     )
   end
 
-  it 'defaults hastax to 1 (tax-inclusive prices)' do
-    described_class.new('<xml/>', 'ORD1').create
-    expect(client).to have_received(:call).with(:create_invoice_v3, message: hash_including(hastax: 1))
-  end
-
   it 'sends the hastax supplied by the order (e.g. 0 for tax-exclusive prices)' do
-    described_class.new('<xml/>', 'ORD1', 0).create
+    described_class.new('<xml/>', 0).create
     expect(client).to have_received(:call).with(:create_invoice_v3, message: hash_including(hastax: 0))
   end
 
   it 'returns the SOAP response' do
-    expect(described_class.new('<xml/>', 'ORD1').create).to eq(response)
-  end
-
-  it 'does not log outside a Rails process' do
-    expect { described_class.new('<xml/>', 'ORD1').create }.not_to raise_error
+    expect(described_class.new('<xml/>').create).to eq(response)
   end
 end

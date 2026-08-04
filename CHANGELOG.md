@@ -7,7 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0] - 2026-08-04
 
-### Added
+### Added — 發票
+- `Cetustek.config.logger`(預設 `nil`,即這個 gem 不寫任何東西)。只記訂單編號、
+  發票號碼與結果代碼,失敗時才以 debug 記下請求 XML
+- 開立發票補上規格 Table 1/2 缺漏的欄位:明細的 `Unit`,主檔的 `Remark`、`ZeroReason`、
+  `RoundNum`、`MailSend`、`RtnMsg`,以及 `BuyerAddress`/`BuyerPersonInCharge`/
+  `BuyerTelephoneNumber`/`BuyerFacsimileNumber`/`BuyerCustomerNumber`
+- `InvoiceData` 依規格驗證必填與條件欄位(`order_id`/`order_date`/`items`/
+  `donate_mark`/`payment_type` 必填;`donate_mark=0` 需 email 與載具三欄;
+  `donate_mark=1` 需 3-7 碼 `npo_ban`;`tax_type=4` 需明確 `tax_rate` 且
+  `invoice_type` 為 `08`),違反時建構就丟 `ArgumentError`
+- `carrier_id1` 成為顯碼的正式名稱(`carrier_id` 保留為別名),`carrier_id2` 未填時
+  自動鏡射顯碼 —— 手機條碼與自然人憑證沒有顯隱碼之分
+- `CancelInvoice` 支援 `remark:`(作廢原因,預設 `'退貨'`)與
+  `return_tax_document_number:`(專案作廢核准文號,超過申報期間作廢時需要)
+
+### Changed — 發票
+- **Breaking:** 開立發票預設帶 `<RtnMsg>Json</RtnMsg>`,`CreateInvoice#execute` 除了
+  既有的 `:number`/`:random_number` 另外回傳 `:date`/`:time` 與各項金額。發票日期改以
+  API 回傳為準,不再用本機 `Time.zone.today` 推測(`Intertemporal` 回開會讓本機日期錯誤)。
+  傳 `rtn_msg: nil` 可退回舊的 15 碼字串模式
+- **Breaking:** 開立與作廢發票失敗一律丟 `Cetustek::ResultError`,帶原始代碼與 Table 7 /
+  Table 10 的中文說明。`ResponseHandler::InvalidResponseError` 降為 `ResultError` 的子類
+  (deprecated,既有 rescue 仍可運作);`CancelInvoice` 不再靜默回傳 nil
+- **Breaking:** `CancelInvoice.new(invoice_number, invoice_year, remark:)` 改收明確參數,
+  不再接受 invoice 物件,也不再回寫 `canceled: true`
+- **Breaking:** 移除 `CreateInvoice` 的 `invoice_info` 回寫與兩處 `Rails.root/log/*` 寫檔
+  (原本會把含買受人 email 的整包回應寫進固定路徑);`InvoiceService.new(xml, hastax)`
+  不再接受 `order_id`
+- 成功判斷改用規格寫的 15 碼規則(`發票號碼;隨機碼`),而非「字串含分號」
+
+### Added — 折讓
 - `Cetustek::QueryAllowance.find(allowance_number)` — 查詢折讓資料 (§2.11) with the
   returned XML parsed into a Hash (snake_case keys + `:details` array); `nil` when the
   allowance number is unknown. `.query` still returns the raw Savon response

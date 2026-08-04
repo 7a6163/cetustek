@@ -44,14 +44,29 @@ module Cetustek
   end
 
   module Models
+    # Request data for CreateInvoiceV3 (開立發票), spec AVM-26-03 Table 1/2.
+    # Rules the spec fixes in print are enforced here; anything needing an
+    # external lookup (捐贈碼、手機條碼是否存在) is left to the caller.
     class InvoiceData
       DEFAULT_TAX_RATE = 0.05
-      DEFAULT_INVOICE_TYPE = '07' # 07: 一般稅額, 08: 特種稅額
+      DEFAULT_INVOICE_TYPE = '07'  # 一般稅額電子發票
+      SPECIAL_INVOICE_TYPE = '08'  # 特種稅額電子發票
+      # Json 回傳才拿得到平台配發的發票日期時間；Intertemporal 回開會讓本機日期失準。
+      DEFAULT_RTN_MSG = 'Json'
+      MAX_ITEMS = 9999
+      TAX_TYPES = [TaxType::TAXABLE, TaxType::ZERO_RATE, TaxType::TAX_FREE,
+                   TaxType::SPECIAL, TaxType::ZERO_RATE_CUSTOMS, TaxType::MIXED].freeze
+      DONATE_MARKS = [DonateMark::CARRIER, DonateMark::DONATE, DonateMark::PAPER].freeze
 
       attr_reader :order_id, :order_date, :buyer_identifier, :buyer_name,
-                  :buyer_email, :donate_mark, :carrier_type, :carrier_id,
-                  :carrier_id2, :npo_ban, :items, :payment_type,
-                  :tax_type, :tax_rate, :invoice_type, :hastax
+                  :buyer_email, :buyer_address, :buyer_person_in_charge,
+                  :buyer_telephone, :buyer_facsimile, :buyer_customer_number,
+                  :donate_mark, :carrier_type, :carrier_id1, :carrier_id2,
+                  :npo_ban, :items, :payment_type, :tax_type, :tax_rate,
+                  :zero_reason, :invoice_type, :hastax, :remark, :round_num,
+                  :mail_send, :rtn_msg
+
+      alias carrier_id carrier_id1
 
       def initialize(attributes = {})
         @order_id = attributes[:order_id]
@@ -59,24 +74,113 @@ module Cetustek
         @buyer_identifier = attributes[:buyer_identifier]
         @buyer_name = attributes[:buyer_name]
         @buyer_email = attributes[:buyer_email]
+        @buyer_address = attributes[:buyer_address]
+        @buyer_person_in_charge = attributes[:buyer_person_in_charge]
+        @buyer_telephone = attributes[:buyer_telephone]
+        @buyer_facsimile = attributes[:buyer_facsimile]
+        @buyer_customer_number = attributes[:buyer_customer_number]
         @donate_mark = attributes[:donate_mark]
         @carrier_type = attributes[:carrier_type]
-        @carrier_id = attributes[:carrier_id]
-        @carrier_id2 = attributes[:carrier_id2]
+        @carrier_id1 = attributes[:carrier_id1] || attributes[:carrier_id]
+        # 手機條碼與自然人憑證沒有顯碼隱碼之分，兩欄填相同值。
+        @carrier_id2 = attributes[:carrier_id2] || @carrier_id1
         @npo_ban = attributes[:npo_ban]
         @items = attributes[:items] || []
         @payment_type = attributes[:payment_type]
         @tax_type = attributes[:tax_type] || TaxType::TAXABLE
-        @tax_rate = attributes.fetch(:tax_rate, DEFAULT_TAX_RATE)
+        # 特種稅率是營業性質決定的，不能沿用 5% 預設值。
+        @tax_rate = attributes.fetch(:tax_rate) { special_tax? ? nil : DEFAULT_TAX_RATE }
+        @zero_reason = attributes[:zero_reason]
         @invoice_type = attributes[:invoice_type] || DEFAULT_INVOICE_TYPE
         # hastax: 0 = item prices are tax-exclusive, 1 = tax-inclusive.
         # Comes from the order (e.g. tax-free purchases), not a fixed value.
         @hastax = attributes.fetch(:hastax, 1)
+        @remark = attributes[:remark]
+        @round_num = attributes[:round_num]
+        @mail_send = attributes[:mail_send]
+        @rtn_msg = attributes.fetch(:rtn_msg, DEFAULT_RTN_MSG)
+        validate!
       end
 
       # 混合稅率發票 (限收銀機)：每筆明細需標註 DType。
       def mixed_tax?
         @tax_type.to_i == TaxType::MIXED
+      end
+
+      # 特種稅額發票：TaxRate 必填，InvoiceType 必須為 08。
+      def special_tax?
+        @tax_type.to_i == TaxType::SPECIAL
+      end
+
+      private
+
+      def validate!
+        raise ArgumentError, 'order_id is required' if blank?(@order_id)
+
+        validate_order_date!
+        validate_items!
+        validate_donate_mark!
+        validate_pay_way!
+        validate_tax!
+      end
+
+      def validate_order_date!
+        raise ArgumentError, 'order_date is required' if @order_date.nil?
+        return if @order_date.respond_to?(:strftime)
+
+        raise ArgumentError, "order_date must be a Date or Time, got #{@order_date.class}"
+      end
+
+      def validate_items!
+        raise ArgumentError, 'items must not be empty (沒有產品明細)' if @items.empty?
+        raise ArgumentError, "items must not exceed #{MAX_ITEMS} lines" if @items.size > MAX_ITEMS
+      end
+
+      def validate_donate_mark!
+        raise ArgumentError, 'donate_mark is required (0 載具, 1 捐贈, 2 紙本)' if blank?(@donate_mark)
+
+        unless DONATE_MARKS.include?(@donate_mark.to_i)
+          raise ArgumentError, "donate_mark must be 0 (載具), 1 (捐贈) or 2 (紙本), got #{@donate_mark.inspect}"
+        end
+
+        case @donate_mark.to_i
+        when DonateMark::CARRIER then validate_carrier!
+        when DonateMark::DONATE then validate_npo_ban!
+        end
+      end
+
+      def validate_carrier!
+        missing = { buyer_email: @buyer_email, carrier_type: @carrier_type,
+                    carrier_id1: @carrier_id1 }.select { |_name, value| blank?(value) }.keys
+        return if missing.empty?
+
+        raise ArgumentError, "#{missing.join(', ')} required when donate_mark is 0 (載具)"
+      end
+
+      def validate_npo_ban!
+        return if @npo_ban.to_s.match?(/\A\d{3,7}\z/)
+
+        raise ArgumentError, "npo_ban must be a 3-7 digit 捐贈碼 when donate_mark is 1 (捐贈), got #{@npo_ban.inspect}"
+      end
+
+      def validate_pay_way!
+        raise ArgumentError, 'payment_type is required (see Cetustek::PayWay)' if blank?(@payment_type)
+      end
+
+      def validate_tax!
+        unless TAX_TYPES.include?(@tax_type.to_i)
+          raise ArgumentError, "tax_type must be one of #{TAX_TYPES.join(', ')}, got #{@tax_type.inspect}"
+        end
+        return unless special_tax?
+
+        raise ArgumentError, 'tax_rate is required when tax_type is 4 (特種稅率)' if blank?(@tax_rate)
+        return if @invoice_type.to_s == SPECIAL_INVOICE_TYPE
+
+        raise ArgumentError, "invoice_type must be '08' (特種稅額) when tax_type is 4, got #{@invoice_type.inspect}"
+      end
+
+      def blank?(value)
+        value.nil? || value.to_s.strip.empty?
       end
     end
 
