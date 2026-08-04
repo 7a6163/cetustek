@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.authors = ["Zac"]
   spec.email = ["579103+7a6163@users.noreply.github.com"]
 
-  spec.summary = "A Ruby gem for handling electronic invoice operations"
-  spec.description = "Cetustek is a Ruby gem designed for handling electronic invoice operations, including invoice cancellation. It communicates with the e-invoice system through SOAP Web Services."
+  spec.summary = "A Ruby client for the Cetustek e-invoice API (電子發票加值中心)"
+  spec.description = "Cetustek is a Ruby wrapper for the 鯨躍 Cetustek e-invoice API (虛擬多通路, spec AVM-26-03): issuing and cancelling 電子發票 and 折讓單, the read-only queries, and 手機條碼 validation, over SOAP Web Services."
   spec.homepage = "https://github.com/7a6163/cetustek"
   spec.required_ruby_version = ">= 3.0.0"
   spec.license = "MIT"

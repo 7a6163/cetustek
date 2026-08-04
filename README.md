@@ -4,16 +4,18 @@
 [![RSpec Tests](https://github.com/7a6163/cetustek/actions/workflows/rspec.yml/badge.svg)](https://github.com/7a6163/cetustek/actions/workflows/rspec.yml)
 [![codecov](https://codecov.io/gh/7a6163/cetustek/graph/badge.svg?token=N951Y9SE15)](https://codecov.io/gh/7a6163/cetustek)
 
-Cetustek is a Ruby gem designed for handling electronic invoice operations, including invoice cancellation. It communicates with the e-invoice system through SOAP Web Services.
+Cetustek is a Ruby wrapper for the 鯨躍 Cetustek e-invoice API (虛擬多通路,
+spec AVM-26-03), covering 電子發票 and 折讓單 over SOAP Web Services.
 
 ## Features
 
-- Electronic invoice cancellation
-- XML format generation
-- SOAP Web Services integration
-- Environment-specific configuration (sandbox/production)
-- Service-oriented architecture
-- Robust error handling
+- 開立發票 (CreateInvoiceV3) with 載具/捐贈/紙本, 零稅率, 混合稅率 and 特種稅額 support
+- 作廢發票 (CancelInvoice), including the 專案作廢核准文號 for late cancellations
+- 折讓單: 開立 (CreateAllowance), 作廢 (CancelAllowance), 查詢 (QueryAllowance)
+- Queries by invoice number or order id, plus 手機條碼 validation
+- Validation of the rules the spec fixes in print, before anything is sent
+- Result codes raised as `Cetustek::ResultError` with the documented reason
+- Environment-specific configuration (sandbox/production) and opt-in logging
 
 ## Installation
 

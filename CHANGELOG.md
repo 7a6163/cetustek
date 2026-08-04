@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - 2026-08-04
+## [0.8.0] - 2026-08-04
 
-### Added — 發票
+### Added
 - `Cetustek.config.logger`(預設 `nil`,即這個 gem 不寫任何東西)。只記訂單編號、
   發票號碼與結果代碼,失敗時才以 debug 記下請求 XML
 - 開立發票補上規格 Table 1/2 缺漏的欄位:明細的 `Unit`,主檔的 `Remark`、`ZeroReason`、
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CancelInvoice` 支援 `remark:`(作廢原因,預設 `'退貨'`)與
   `return_tax_document_number:`(專案作廢核准文號,超過申報期間作廢時需要)
 
-### Changed — 發票
+### Changed
 - **Breaking:** 開立發票預設帶 `<RtnMsg>Json</RtnMsg>`,`CreateInvoice#execute` 除了
   既有的 `:number`/`:random_number` 另外回傳 `:date`/`:time` 與各項金額。發票日期改以
   API 回傳為準,不再用本機 `Time.zone.today` 推測(`Intertemporal` 回開會讓本機日期錯誤)。
@@ -37,7 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   不再接受 `order_id`
 - 成功判斷改用規格寫的 15 碼規則(`發票號碼;隨機碼`),而非「字串含分號」
 
-### Added — 折讓
+## [0.7.0] - 2026-08-04
+
+### Added
 - `Cetustek::QueryAllowance.find(allowance_number)` — 查詢折讓資料 (§2.11) with the
   returned XML parsed into a Hash (snake_case keys + `:details` array); `nil` when the
   allowance number is unknown. `.query` still returns the raw Savon response
