@@ -4,17 +4,45 @@ require 'ox'
 require 'cgi'
 
 module Cetustek
-  # 2.9 CreateAllowance 開立折讓單. Returns the result code (A0 = success).
-  # check_allowance: 0 = confirmed allowance (default), 1 = unconfirmed.
+  # 2.9 CreateAllowance 開立折讓單. Returns "A0" on success, raises ResultError otherwise.
   class CreateAllowance
+    SUCCESS_CODE = 'A0'
+
+    # Spec AVM-26-03 Table 17.
+    RESULT_MESSAGES = {
+      'M:' => '欄位未填或格式錯誤',
+      'M1' => 'XML 格式錯誤',
+      'D0' => '沒有產品明細',
+      'D0_' => '產品編號格式錯誤',
+      'D1_' => '品名未填或格式錯誤',
+      'D2_' => '數量未填或格式錯誤',
+      'D3_' => '單價未填或格式錯誤',
+      'D4_' => '單位格式錯誤',
+      'D5_' => '數量*單價，其小計整數位大於 13 位',
+      'D999' => '明細筆數最多 9999 筆',
+      'A1' => '上傳失敗',
+      'A2' => '所有折讓金額加總不能大於原發票金額',
+      'A3' => '發票號碼不存在',
+      'A4' => '發票號碼已經被作廢',
+      'A5' => '折讓單已經上傳',
+      'A6' => '折讓總金額須大於零',
+      'A7' => '折讓日期應大於原發票開立日期',
+      'Invalid' => '無效 IP，請通知系統商'
+    }.freeze
+
+    # check_allowance 只剩 0（已確認的折讓單）：規格 §2.9 已刪除 1，
+    # 114/01/01 起上傳的折讓單皆為已確認。
     def initialize(allowance_data, check_allowance: 0)
+      raise ArgumentError, 'check_allowance must be 0 (114/01/01 起折讓單皆為已確認)' unless check_allowance.to_i.zero?
+
       @data = allowance_data
-      @check_allowance = check_allowance
+      @check_allowance = 0
     end
 
     def execute
       perform
-      @response.body[:create_allowance_response][:return]
+      ResultCode.check!(@response.body[:create_allowance_response][:return],
+                        RESULT_MESSAGES, success: SUCCESS_CODE)
     end
 
     private

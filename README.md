@@ -191,7 +191,30 @@ allowance = Cetustek::Models::AllowanceData.new(
 )
 Cetustek::CreateAllowance.new(allowance).execute              # => "A0" on success
 Cetustek::CancelAllowance.new('AA20240216000001', '明細錯誤').execute # => "C0" on success
-Cetustek::QueryAllowance.query('AA20240216000001')
+Cetustek::QueryAllowance.find('AA20240216000001')             # parsed Hash, nil if unknown
+Cetustek::QueryAllowance.query('AA20240216000001')            # raw Savon response
+```
+
+`tax_type` on an allowance only accepts `1` 應稅, `2` 零稅率 or `3` 免稅 — the
+invoice-only values (`4`, `5`, `9`) raise `ArgumentError`. `unit_price` is
+**tax-inclusive** (there is no `hastax` on allowances).
+
+Any other result code raises `Cetustek::ResultError`, whose `#code` is the raw
+code and whose message includes the documented reason (e.g. `A2 - 所有折讓金額加總
+不能大於原發票金額`, `C2 - 折讓單已申報，無法作廢`).
+
+`QueryAllowance.find` returns the Table 20 fields as snake_case symbols with the
+line items under `:details`, values kept as the raw strings from the XML:
+
+```ruby
+{ allowance_number: 'AA20240216000001', allowance_date: '2024/02/16',
+  invoice_number: 'AA10000000', invoice_date: '2024/02/14',
+  buyer_identifier: '12345678', buyer_name: '測試公司', buyer_address: nil,
+  reason: '退回', allowance_status: '開立', back_status: '已確認',
+  sale_amount: '95', tax_amount: '5',
+  details: [{ sequence_number: '1', product_code: '0001', description: '禮券',
+              quantity: '1', unit: '本', unit_price: '95', amount: '95',
+              tax: '5', tax_type: '1' }] }
 ```
 
 ### Mobile barcode validation (手機條碼)

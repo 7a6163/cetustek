@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'ox'
+
 module Cetustek
   # Read-only SOAP queries. Each returns the raw Savon response, mirroring
   # QueryInvoiceByOrderId. Spec AVM-26-03 §2.4 / §2.6 / §2.11.
@@ -48,6 +50,14 @@ module Cetustek
   class QueryAllowance
     extend Queries
 
+    # Spec AVM-26-03 Table 20. Note the query response uses ProductCode and
+    # InvoiceDate, unlike CreateAllowance's ProductionCode and InvoiceYear.
+    FIELDS = %w[AllowanceNumber AllowanceDate InvoiceNumber InvoiceDate
+                BuyerIdentifier BuyerName BuyerAddress Reason AllowanceStatus
+                BackStatus SaleAmount TaxAmount].freeze
+    DETAIL_FIELDS = %w[SequenceNumber ProductCode Description Quantity Unit
+                       UnitPrice Amount Tax TaxType].freeze
+
     def self.query(allowance_number)
       soap_client.call(:query_allowance, message: {
                          allowancenumber: allowance_number,
@@ -55,5 +65,36 @@ module Cetustek
                          rentid: rentid
                        })
     end
+
+    # Same query, with the returned XML parsed into a Hash of snake_case keys
+    # plus a :details array. Values are the raw strings from the XML; returns
+    # nil when the allowance number is unknown.
+    def self.find(allowance_number)
+      parse(query(allowance_number).body[:query_allowance_response][:return])
+    end
+
+    def self.parse(xml)
+      body = xml.to_s.strip
+      return nil if body.empty? || body == 'nodata'
+
+      root = Ox.parse(body)
+      root = root.root if root.is_a?(Ox::Document)
+
+      data = FIELDS.to_h { |field| [snake_case(field), text_of(root, field)] }
+      data[:details] = root.locate('Details/ProductItem').map do |item|
+        DETAIL_FIELDS.to_h { |field| [snake_case(field), text_of(item, field)] }
+      end
+      data
+    end
+
+    def self.text_of(element, name)
+      element.locate(name).first&.text
+    end
+
+    def self.snake_case(name)
+      name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase.to_sym
+    end
+
+    private_class_method :text_of, :snake_case
   end
 end

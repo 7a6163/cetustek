@@ -4,8 +4,22 @@ require 'ox'
 require 'cgi'
 
 module Cetustek
-  # 2.10 CancelAllowance 作廢折讓單. Returns the result code (C0 = success).
+  # 2.10 CancelAllowance 作廢折讓單. Returns "C0" on success, raises ResultError otherwise.
   class CancelAllowance
+    SUCCESS_CODE = 'C0'
+
+    # Spec AVM-26-03 Table 19.
+    RESULT_MESSAGES = {
+      'M:' => '欄位未填或格式錯誤',
+      'M1' => 'XML 格式錯誤',
+      'C1' => '上傳失敗',
+      'C2' => '折讓單已申報，無法作廢',
+      'C3' => '折讓單號不存在或須為已確認後的折讓單',
+      'C4' => '該作廢折讓單已經上傳',
+      'C5' => '折讓單已過作廢期限，無法作廢',
+      'Invalid' => '無效 IP，請通知系統商'
+    }.freeze
+
     def initialize(allowance_number, reason)
       @allowance_number = allowance_number
       @reason = reason
@@ -13,7 +27,8 @@ module Cetustek
 
     def execute
       perform
-      @response.body[:cancel_allowance_response][:return]
+      ResultCode.check!(@response.body[:cancel_allowance_response][:return],
+                        RESULT_MESSAGES, success: SUCCESS_CODE)
     end
 
     private

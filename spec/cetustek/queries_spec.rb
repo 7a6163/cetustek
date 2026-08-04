@@ -45,5 +45,62 @@ RSpec.describe 'SOAP queries' do
         message: { allowancenumber: 'AA1411210027', source: 'SITEPASS', rentid: 'USER' }
       )
     end
+
+    describe '.find' do
+      let(:xml) do
+        <<~XML
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Allowance XSDVersion="2.8">
+            <AllowanceNumber>AA1411210027</AllowanceNumber>
+            <AllowanceDate>2024/02/16</AllowanceDate>
+            <InvoiceNumber>AA10000000</InvoiceNumber>
+            <InvoiceDate>2024/02/14</InvoiceDate>
+            <BuyerIdentifier>12345678</BuyerIdentifier>
+            <BuyerName>測試公司</BuyerName>
+            <BuyerAddress></BuyerAddress>
+            <Reason>退回</Reason>
+            <AllowanceStatus>開立</AllowanceStatus>
+            <BackStatus>已確認</BackStatus>
+            <SaleAmount>95</SaleAmount>
+            <TaxAmount>5</TaxAmount>
+            <Details>
+              <ProductItem>
+                <ProductCode>0001</ProductCode>
+                <Description>禮券</Description>
+                <Quantity>1</Quantity>
+                <Unit>本</Unit>
+                <UnitPrice>95</UnitPrice>
+                <Amount>95</Amount>
+                <Tax>5</Tax>
+                <TaxType>1</TaxType>
+              </ProductItem>
+            </Details>
+          </Allowance>
+        XML
+      end
+
+      before { allow(response).to receive(:body).and_return({ query_allowance_response: { return: xml } }) }
+
+      it 'parses the response XML into a hash' do
+        result = described_class.find('AA1411210027')
+
+        expect(result[:allowance_number]).to eq('AA1411210027')
+        expect(result[:invoice_date]).to eq('2024/02/14')
+        expect(result[:buyer_name]).to eq('測試公司')
+        expect(result[:buyer_address]).to be_nil
+        expect(result[:back_status]).to eq('已確認')
+        expect(result[:sale_amount]).to eq('95')
+        expect(result[:tax_amount]).to eq('5')
+        expect(result[:details]).to eq(
+          [{ sequence_number: nil, product_code: '0001', description: '禮券', quantity: '1',
+             unit: '本', unit_price: '95', amount: '95', tax: '5', tax_type: '1' }]
+        )
+      end
+
+      it 'returns nil when there is no allowance' do
+        expect(described_class.parse('nodata')).to be_nil
+        expect(described_class.parse(nil)).to be_nil
+      end
+    end
   end
 end
