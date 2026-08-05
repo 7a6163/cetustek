@@ -3,6 +3,8 @@
 require_relative "cetustek/version"
 require_relative "cetustek/errors"
 require_relative "cetustek/configuration"
+require_relative "cetustek/xml"
+require_relative "cetustek/soap"
 require_relative "cetustek/models/allowance_data"
 require_relative "cetustek/create_invoice"
 require_relative "cetustek/cancel_invoice"

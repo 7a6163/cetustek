@@ -22,7 +22,7 @@ RSpec.describe Cetustek::CancelInvoice do
 
   it 'calls cancel_invoice with the invoice XML and encoded credentials' do
     stub_return('C0')
-    expect(described_class.new('AB12345678', 2024).execute).to eq('C0')
+    expect(described_class.new('AB12345678', 2024, remark: '退貨').execute).to eq('C0')
 
     expect(client).to have_received(:call) do |operation, message:|
       expect(operation).to eq(:cancel_invoice)
@@ -36,7 +36,7 @@ RSpec.describe Cetustek::CancelInvoice do
 
   it 'omits ReturnTaxDocumentNumber unless the cancellation is past the filing period' do
     stub_return('C0')
-    described_class.new('AB12345678', 2024).execute
+    described_class.new('AB12345678', 2024, remark: '退貨').execute
     expect(client).to have_received(:call) do |_op, message:|
       expect(message[:invoicexml]).not_to include('ReturnTaxDocumentNumber')
     end
@@ -44,7 +44,7 @@ RSpec.describe Cetustek::CancelInvoice do
 
   it 'sends the 專案作廢核准文號 when given' do
     stub_return('C0')
-    described_class.new('AB12345678', 2024, return_tax_document_number: '65327645').execute
+    described_class.new('AB12345678', 2024, remark: '退貨', return_tax_document_number: '65327645').execute
     expect(client).to have_received(:call) do |_op, message:|
       expect(message[:invoicexml]).to include('<ReturnTaxDocumentNumber>65327645</ReturnTaxDocumentNumber>')
     end
@@ -58,9 +58,18 @@ RSpec.describe Cetustek::CancelInvoice do
     expect { described_class.new('AB12345678', 2024, remark: '') }.to raise_error(ArgumentError, /remark/)
   end
 
+  it 'has no default 作廢原因, since Table 9 makes it 必填' do
+    expect { described_class.new('AB12345678', 2024) }.to raise_error(ArgumentError, /remark/)
+  end
+
+  it 'rejects a 作廢原因 longer than the 20 characters Table 9 allows' do
+    expect { described_class.new('AB12345678', 2024, remark: '原' * 21) }
+      .to raise_error(ArgumentError, /20 characters/)
+  end
+
   it 'raises ResultError with the documented message on failure' do
     stub_return('C5')
-    expect { described_class.new('AB12345678', 2024).execute }
+    expect { described_class.new('AB12345678', 2024, remark: '退貨').execute }
       .to raise_error(Cetustek::ResultError, /C5 - 該發票已經作廢過/)
   end
 end

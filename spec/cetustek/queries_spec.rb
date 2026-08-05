@@ -97,9 +97,14 @@ RSpec.describe 'SOAP queries' do
         )
       end
 
-      it 'returns nil when there is no allowance' do
-        expect(described_class.parse('nodata')).to be_nil
+      it 'returns nil when the platform answers with nothing' do
         expect(described_class.parse(nil)).to be_nil
+        expect(described_class.parse('  ')).to be_nil
+      end
+
+      it 'raises with the returned code when the answer is not XML' do
+        expect { described_class.parse('M:AllowanceNumber') }
+          .to raise_error(Cetustek::ResultError, /M:AllowanceNumber - 欄位未填或格式錯誤/)
       end
     end
   end

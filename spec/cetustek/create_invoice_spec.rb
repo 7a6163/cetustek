@@ -3,23 +3,35 @@
 require 'spec_helper'
 
 RSpec.describe Cetustek::CreateInvoice do
-  let(:data) { invoice_data }
-  let(:response) { double('response') }
-  let(:result) { { number: 'GT68514542', random_number: '9654' } }
+  let(:client) { instance_double(Savon::Client) }
+  let(:data) { build_invoice_data }
 
   before do
-    builder = instance_double(Cetustek::Services::InvoiceXmlBuilder, build: '<xml/>')
-    allow(Cetustek::Services::InvoiceXmlBuilder).to receive(:new).with(data).and_return(builder)
-
-    service = instance_double(Cetustek::Services::InvoiceService, create: response)
-    allow(Cetustek::Services::InvoiceService).to receive(:new).with('<xml/>', 1).and_return(service)
-
-    handler = instance_double(Cetustek::Services::ResponseHandler, process: result)
-    allow(Cetustek::Services::ResponseHandler).to receive(:new)
-      .with(response, data, '<xml/>').and_return(handler)
+    Cetustek.configure do |c|
+      c.environment = :sandbox
+      c.site_id = 'SITE'
+      c.username = 'USER'
+      c.password = 'PASS'
+    end
+    allow(Savon).to receive(:client).and_return(client)
+    allow(client).to receive(:call)
+      .and_return(double('response', body: { create_invoice_v3_response: { return: 'GT68514542;9654' } }))
   end
 
-  it 'wires builder -> service -> handler and returns the result' do
-    expect(described_class.new(data).execute).to eq(result)
+  it 'sends the built XML with hastax and the encoded credentials' do
+    expect(described_class.new(data).execute).to eq({ number: 'GT68514542', random_number: '9654' })
+
+    expect(client).to have_received(:call) do |operation, message:|
+      expect(operation).to eq(:create_invoice_v3)
+      expect(message[:invoicexml]).to include('<OrderId>ORD1</OrderId>')
+      expect(message[:hastax]).to eq(1)
+      expect(message[:source]).to eq('SITEPASS')
+      expect(message[:rentid]).to eq('USER')
+    end
+  end
+
+  it 'passes the order-supplied hastax through' do
+    described_class.new(build_invoice_data(hastax: 0)).execute
+    expect(client).to have_received(:call) { |_op, message:| expect(message[:hastax]).to eq(0) }
   end
 end

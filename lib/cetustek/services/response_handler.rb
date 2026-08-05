@@ -8,25 +8,14 @@ module Cetustek
     # the Table 8 JSON object (RtnMsg=Json), the 15-character
     # "發票號碼;隨機碼" string, or a bare Table 7 result code.
     class ResponseHandler
-      # Kept as a ResultError subclass so pre-0.7 rescues keep working.
-      # @deprecated rescue Cetustek::ResultError instead.
-      class InvalidResponseError < ResultError; end
+      # @deprecated rescue Cetustek::ResultError instead. Kept as an alias of
+      #   the class actually raised so pre-0.7 rescues keep matching.
+      InvalidResponseError = ResultError
 
       SUCCESS_LENGTH = 15 # 發票號碼 10 碼 + ';' + 隨機碼 4 碼
 
       # Spec AVM-26-03 Table 7.
-      RESULT_MESSAGES = {
-        'M:' => '欄位未填或格式錯誤',
-        'M0' => 'XML 格式錯誤',
-        'M1' => 'XML 格式錯誤',
-        'D0' => '沒有產品明細',
-        'D0_' => '產品編號格式錯誤',
-        'D1_' => '品名未填或格式錯誤',
-        'D2_' => '數量未填或格式錯誤',
-        'D3_' => '單價未填或格式錯誤',
-        'D4_' => '單位格式錯誤',
-        'D5_' => '數量*單價，其小計整數位大於 13 位',
-        'D999' => '明細筆數最多 9999 筆',
+      RESULT_MESSAGES = ResultCode::COMMON.merge(ResultCode::DETAILS).merge(
         'S1' => '資料庫發生錯誤',
         'S2' => '訂單日期超過開立日期',
         'S3' => '未在申報期內',
@@ -34,11 +23,10 @@ module Cetustek
         'S5' => '發票號碼已使用完畢',
         'S6' => '超過租賃張數限制',
         'S7' => '訂單號碼已存在，若需重開請先作廢原發票號碼',
-        'S8' => '開立的總金額為負值',
-        'Invalid' => '無效 IP，請通知系統商'
-      }.freeze
+        'S8' => '開立的總金額為負值'
+      ).freeze
 
-      def initialize(response, invoice_data = nil, xml = nil)
+      def initialize(response, invoice_data, xml = nil)
         @response = response
         @invoice_data = invoice_data
         @xml = xml
@@ -97,7 +85,7 @@ module Cetustek
       def fail_with(code)
         logger&.error("CreateInvoiceV3 #{order_id} #{code}")
         logger&.debug(@xml) if @xml
-        raise InvalidResponseError.new(code, ResultCode.describe(code, RESULT_MESSAGES))
+        ResultCode.raise!(code, RESULT_MESSAGES)
       end
 
       def logger
@@ -105,7 +93,7 @@ module Cetustek
       end
 
       def order_id
-        @invoice_data&.order_id
+        @invoice_data.order_id
       end
     end
   end

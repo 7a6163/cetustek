@@ -3,21 +3,8 @@
 require 'ox'
 
 module Cetustek
-  # Read-only SOAP queries. Each returns the raw Savon response, mirroring
-  # QueryInvoiceByOrderId. Spec AVM-26-03 §2.4 / §2.6 / §2.11.
-  module Queries
-    def soap_client
-      Savon.client(wsdl: Cetustek.config.url, open_timeout: 300, read_timeout: 300)
-    end
-
-    def source
-      Cetustek.config.site_id + Cetustek.config.password
-    end
-
-    def rentid
-      Cetustek.config.username
-    end
-  end
+  # @deprecated use Cetustek::Soap. Kept so `extend Queries` keeps working.
+  Queries = Soap
 
   # 2.4 QueryInvoice 查詢發票資訊 (by invoice number + year)
   class QueryInvoice
@@ -68,14 +55,16 @@ module Cetustek
 
     # Same query, with the returned XML parsed into a Hash of snake_case keys
     # plus a :details array. Values are the raw strings from the XML; returns
-    # nil when the allowance number is unknown.
+    # nil when the platform answers with nothing at all.
     def self.find(allowance_number)
-      parse(query(allowance_number).body[:query_allowance_response][:return])
+      parse(soap_return(query(allowance_number), :query_allowance))
     end
 
     def self.parse(xml)
       body = xml.to_s.strip
-      return nil if body.empty? || body == 'nodata'
+      return nil if body.empty?
+      # §2.11 只描述成功時的 XML；非 XML 的回覆是代碼字串，原樣拋給呼叫端。
+      ResultCode.raise!(body, ResultCode::COMMON) unless body.start_with?('<')
 
       root = Ox.parse(body)
       root = root.root if root.is_a?(Ox::Document)

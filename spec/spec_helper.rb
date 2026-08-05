@@ -16,8 +16,11 @@ SimpleCov.start do
 end
 
 require 'cetustek'
+require_relative 'support/factories'
 
 RSpec.configure do |config|
+  config.include Factories
+
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
 
@@ -41,20 +44,4 @@ end
 # Helper method to load fixture files
 def load_fixture(filename)
   File.read(File.join('spec', 'fixtures', filename))
-end
-
-# A minimal set of attributes that satisfies InvoiceData's validations, so each
-# example only has to state the fields it actually cares about.
-def invoice_attributes(overrides = {})
-  {
-    order_id: 'ORD1',
-    order_date: Date.new(2024, 1, 2),
-    donate_mark: Cetustek::DonateMark::PAPER,
-    payment_type: Cetustek::PayWay::CASH,
-    items: [Cetustek::Models::InvoiceItem.new(code: 'A1', name: 'Item', quantity: 1, unit_price: 100)]
-  }.merge(overrides)
-end
-
-def invoice_data(overrides = {})
-  Cetustek::Models::InvoiceData.new(invoice_attributes(overrides))
 end

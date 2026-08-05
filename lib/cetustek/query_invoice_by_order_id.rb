@@ -1,19 +1,12 @@
-module Cetustek
-  class QueryInvoiceByOrderId
-    def self.query(order_id)
-      url = Cetustek.config.url
-      client = Savon.client(
-        wsdl: url,
-        open_timeout: 300,
-        read_timeout: 300
-      )
+# frozen_string_literal: true
 
-      @response = client.call(:query_invoice_by_orderid, message:
-        {
-          orderid: order_id,
-          source: Cetustek.config.site_id + Cetustek.config.password,
-          rentid: Cetustek.config.username
-        })
+module Cetustek
+  # 2.5 QueryInvoicebyOrderid 以訂單編號查詢發票資訊
+  class QueryInvoiceByOrderId
+    extend Soap
+
+    def self.query(order_id)
+      soap_call(:query_invoice_by_orderid, orderid: order_id)
     end
   end
 end

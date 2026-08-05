@@ -4,7 +4,7 @@ require 'spec_helper'
 
 RSpec.describe Cetustek::Services::InvoiceXmlBuilder do
   def build(overrides = {})
-    data = invoice_data({
+    data = build_invoice_data({
       buyer_identifier: '12345678',
       buyer_name: 'Buyer',
       buyer_email: 'buyer@example.com'
@@ -109,9 +109,15 @@ RSpec.describe Cetustek::Services::InvoiceXmlBuilder do
     end
 
     it 'emits them when set' do
-      xml = build(tax_type: 2, tax_rate: 0, zero_reason: '71', round_num: 0, mail_send: 1)
+      xml = build(tax_type: 2, tax_rate: 0, zero_reason: '71', round_num: 0)
       expect(xml).to include('<ZeroReason>71</ZeroReason>')
       expect(xml).to include('<RoundNum>0</RoundNum>')
+    end
+
+    it 'emits MailSend, which only applies to carrier invoices' do
+      xml = build(donate_mark: Cetustek::DonateMark::CARRIER, buyer_email: 'a@b.c',
+                  carrier_type: Cetustek::CarrierType::MOBILE_BARCODE, carrier_id: '/K.1TI+P',
+                  mail_send: 1)
       expect(xml).to include('<MailSend>1</MailSend>')
     end
   end

@@ -66,8 +66,8 @@ invoice_data = Cetustek::Models::InvoiceData.new(
   buyer_name: invoice.name,
   buyer_email: invoice.email,
   donate_mark: Cetustek::DonateMark::CARRIER,
-  carrier_type: '3J0002',        # 手機條碼
-  carrier_id: invoice.barcode,   # CarrierId2 is mirrored automatically
+  carrier_type: Cetustek::CarrierType::MOBILE_BARCODE, # 3J0002
+  carrier_id: invoice.barcode,   # 手機條碼無顯隱碼之分，CarrierId2 自動填相同值
   payment_type: Cetustek::PayWay::ATM,
   items: invoice.items.map { |item|
     Cetustek::Models::InvoiceItem.new(
@@ -96,9 +96,28 @@ Persisting the result is the caller's job — this gem writes to no database.
 so a guaranteed rejection never leaves your process:
 
 - `order_id`, `order_date` (a `Date`/`Time`), `items`, `donate_mark` and `payment_type` are required
-- `donate_mark: 0` (載具) requires `buyer_email`, `carrier_type` and `carrier_id`
+- every item needs `code`, `name`, `quantity` and `unit_price` (`unit` is optional)
+- `donate_mark: 0` (載具) requires `buyer_email`, `carrier_id1` and `carrier_id2`
 - `donate_mark: 1` (捐贈) requires a 3–7 digit `npo_ban`
 - `tax_type: 4` (特種稅率) requires an explicit `tax_rate` and `invoice_type: '08'`
+- `zero_reason` only with `tax_type` 2 or 5; `mail_send` only with `donate_mark: 0`
+- `round_num` 0–7, `remark` at most 200 characters
+
+### Carriers (載具)
+
+`Cetustek::CarrierType` names the codes the spec spells out:
+
+| Constant | Code | Meaning |
+|----------|------|---------|
+| `MOBILE_BARCODE` | `3J0002` | 手機條碼 |
+| `CITIZEN_CERT`   | `CQ0001` | 自然人憑證條碼 |
+| `CETUSTEK_CARD`  | `EJ0011` | 鯨躍發票卡 |
+
+手機條碼與自然人憑證「無顯碼隱碼區分」, so passing `carrier_id` (or `carrier_id1`)
+alone is enough and `CarrierId2` is filled with the same value. Member carriers
+do carry two different codes, so both `carrier_id1` and `carrier_id2` must be
+given — the gem will not guess a 隱碼 it cannot know. 鯨躍發票卡 may be requested
+with a blank `carrier_type`, as the spec allows.
 
 Anything needing an external lookup (是否為有效手機條碼、捐贈碼是否存在) is left
 to the caller — see `Cetustek::PhoneBarcode` below.
@@ -119,7 +138,7 @@ general invoice type of `07`. Use `Cetustek::TaxType` to switch modes:
 | `TAX_FREE`          | 3 | 免稅 |
 | `SPECIAL`           | 4 | 應稅(特種稅率) — set `tax_rate`, use `invoice_type: '08'` |
 | `ZERO_RATE_CUSTOMS` | 5 | 零稅率(經海關出口) |
-| `MIXED`             | 9 | 混合(應稅/零稅率/免稅，限收銀機類型發票) |
+| `MIXED`             | 9 | 混合(應稅/零稅率/免稅) |
 
 #### Zero-rate invoice (零稅率)
 
@@ -185,11 +204,12 @@ Cetustek::Models::InvoiceItem.new(code: 'DISCOUNT', name: '折抵', quantity: 1,
 ### Cancel an Invoice (作廢發票確認)
 
 ```ruby
-Cetustek::CancelInvoice.new('AB12345678', 2024).execute                    # => "C0"
-Cetustek::CancelInvoice.new('AB12345678', 2024, remark: '明細錯誤').execute # 作廢原因，預設 '退貨'
+# remark 是 Table 9 的必填作廢原因，最多 20 字，沒有預設值
+Cetustek::CancelInvoice.new('AB12345678', 2024, remark: '退貨').execute # => "C0"
 
 # 超過申報期間才需要專案作廢核准文號 (否則會收到 C3)
-Cetustek::CancelInvoice.new('AB12345678', 2024, return_tax_document_number: '65327645').execute
+Cetustek::CancelInvoice.new('AB12345678', 2024, remark: '明細錯誤',
+                            return_tax_document_number: '65327645').execute
 ```
 
 Uploading is not the end of it: the cancellation still has to be confirmed
@@ -223,7 +243,7 @@ Cetustek::Models::InvoiceData.new(hastax: 0, items: [...])
 | `remark` | `Remark` | 備註，200 字 |
 | `zero_reason` | `ZeroReason` | 零稅率原因;未填時平台預設 `72`(TaxType 2)或 `71`(TaxType 5) |
 | `round_num` | `RoundNum` | 金額計算位數,未填預設 4 |
-| `mail_send` | `MailSend` | `0`(預設)由加值中心寄送通知,`1` 自行處理 |
+| `mail_send` | `MailSend` | `0`(預設)由加值中心寄送通知,`1` 自行處理;限 `donate_mark: 0` |
 | `rtn_msg` | `RtnMsg` | 預設 `'Json'`;傳 `nil` 退回只回傳 15 碼字串的舊模式 |
 
 Fields with a platform-side default (`ZeroReason`, `RoundNum`, `MailSend`,
@@ -248,13 +268,19 @@ allowance = Cetustek::Models::AllowanceData.new(
 )
 Cetustek::CreateAllowance.new(allowance).execute              # => "A0" on success
 Cetustek::CancelAllowance.new('AA20240216000001', '明細錯誤').execute # => "C0" on success
-Cetustek::QueryAllowance.find('AA20240216000001')             # parsed Hash, nil if unknown
+Cetustek::QueryAllowance.find('AA20240216000001')             # parsed Hash
 Cetustek::QueryAllowance.query('AA20240216000001')            # raw Savon response
 ```
 
-`tax_type` on an allowance only accepts `1` 應稅, `2` 零稅率 or `3` 免稅 — the
-invoice-only values (`4`, `5`, `9`) raise `ArgumentError`. `unit_price` is
-**tax-inclusive** (there is no `hastax` on allowances).
+`AllowanceData.new` raises `ArgumentError` for the Table 15 rules: `allowance_number`,
+`allowance_date` (a `Date`/`Time`), `invoice_number`, `invoice_year`, `reason` (20 字)
+and at least one item are required, and `round_num` must be 0–7. `tax_type` only
+accepts `1` 應稅, `2` 零稅率 or `3` 免稅 — the invoice-only values (`4`, `5`, `9`)
+raise. `unit_price` is **tax-inclusive** (there is no `hastax` on allowances).
+`CancelAllowance` takes the two Table 18 fields, both required, 作廢原因 up to 20 字.
+
+`QueryAllowance.find` returns `nil` only when the platform answers with nothing at
+all; a non-XML answer is a result code and is raised as `ResultError`.
 
 Any other result code raises `Cetustek::ResultError`, whose `#code` is the raw
 code and whose message includes the documented reason (e.g. `A2 - 所有折讓金額加總

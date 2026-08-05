@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require 'ox'
-require 'cgi'
-
 module Cetustek
   module Services
     class InvoiceXmlBuilder
@@ -11,78 +8,47 @@ module Cetustek
       end
 
       def build
-        doc = Ox::Document.new
-        doc << create_xml_instruct
-        doc << create_invoice_element
-
-        Ox.dump(doc).force_encoding('UTF-8')
+        Xml.document('Invoice') do |invoice|
+          add_basic_info(invoice)
+          add_buyer_info(invoice)
+          add_invoice_type_info(invoice)
+          add_details(invoice)
+        end
       end
 
       private
 
-      def create_xml_instruct
-        instruct = Ox::Instruct.new(:xml)
-        instruct[:version] = '1.0'
-        instruct[:encoding] = 'UTF-8'
-        instruct
-      end
-
-      # Builds a raw XML element with the value HTML-escaped, so that special
-      # characters (&, <, >, ", ') in any dynamic field cannot break the XML
-      # or be used for injection.
-      def raw_tag(name, value)
-        Ox::Raw.new("<#{name}>#{CGI.escapeHTML(value.to_s)}</#{name}>")
-      end
-
-      def create_invoice_element
-        invoice = Ox::Element.new('Invoice')
-        invoice[:XSDVersion] = '2.8'
-
-        add_basic_info(invoice)
-        add_buyer_info(invoice)
-        add_invoice_type_info(invoice)
-        add_details(invoice)
-
-        invoice
-      end
-
-      # Fields whose 備註 says "若未填，預設 X" are omitted entirely when nil, so
-      # the platform applies its own default instead of parsing an empty value.
-      def optional_tag(invoice, name, value)
-        invoice << raw_tag(name, value) unless value.nil?
-      end
-
       def add_basic_info(invoice)
-        invoice << raw_tag('OrderId', @data.order_id)
-        invoice << raw_tag('OrderDate', @data.order_date.strftime('%Y/%m/%d'))
+        Xml.append(invoice, 'OrderId', @data.order_id)
+        Xml.append(invoice, 'OrderDate', @data.order_date.strftime('%Y/%m/%d'))
       end
 
       def add_buyer_info(invoice)
-        invoice << raw_tag('BuyerIdentifier', @data.buyer_identifier)
-        invoice << raw_tag('BuyerName', @data.buyer_name)
-        invoice << raw_tag('BuyerAddress', @data.buyer_address)
-        invoice << raw_tag('BuyerPersonInCharge', @data.buyer_person_in_charge)
-        invoice << raw_tag('BuyerTelephoneNumber', @data.buyer_telephone)
-        invoice << raw_tag('BuyerFacsimileNumber', @data.buyer_facsimile)
-        invoice << raw_tag('BuyerEmailAddress', @data.buyer_email)
-        invoice << raw_tag('BuyerCustomerNumber', @data.buyer_customer_number)
+        Xml.append(invoice, 'BuyerIdentifier', @data.buyer_identifier)
+        Xml.append(invoice, 'BuyerName', @data.buyer_name)
+        Xml.append(invoice, 'BuyerAddress', @data.buyer_address)
+        Xml.append(invoice, 'BuyerPersonInCharge', @data.buyer_person_in_charge)
+        Xml.append(invoice, 'BuyerTelephoneNumber', @data.buyer_telephone)
+        Xml.append(invoice, 'BuyerFacsimileNumber', @data.buyer_facsimile)
+        Xml.append(invoice, 'BuyerEmailAddress', @data.buyer_email)
+        Xml.append(invoice, 'BuyerCustomerNumber', @data.buyer_customer_number)
       end
 
       def add_invoice_type_info(invoice)
-        invoice << raw_tag('DonateMark', @data.donate_mark)
-        invoice << raw_tag('InvoiceType', @data.invoice_type)
-        invoice << raw_tag('CarrierType', @data.carrier_type)
-        invoice << raw_tag('CarrierId1', @data.carrier_id1)
-        invoice << raw_tag('CarrierId2', @data.carrier_id2)
-        invoice << raw_tag('NPOBAN', @data.npo_ban)
-        invoice << raw_tag('TaxType', @data.tax_type)
-        invoice << raw_tag('TaxRate', @data.tax_rate)
-        optional_tag(invoice, 'ZeroReason', @data.zero_reason)
-        invoice << raw_tag('PayWay', @data.payment_type)
-        invoice << raw_tag('Remark', @data.remark)
-        optional_tag(invoice, 'MailSend', @data.mail_send)
-        optional_tag(invoice, 'RoundNum', @data.round_num)
-        optional_tag(invoice, 'RtnMsg', @data.rtn_msg)
+        Xml.append(invoice, 'DonateMark', @data.donate_mark)
+        Xml.append(invoice, 'InvoiceType', @data.invoice_type)
+        Xml.append(invoice, 'CarrierType', @data.carrier_type)
+        Xml.append(invoice, 'CarrierId1', @data.carrier_id1)
+        Xml.append(invoice, 'CarrierId2', @data.carrier_id2)
+        Xml.append(invoice, 'NPOBAN', @data.npo_ban)
+        Xml.append(invoice, 'TaxType', @data.tax_type)
+        Xml.append(invoice, 'TaxRate', @data.tax_rate)
+        Xml.append(invoice, 'ZeroReason', @data.zero_reason, skip_nil: true)
+        Xml.append(invoice, 'PayWay', @data.payment_type)
+        Xml.append(invoice, 'Remark', @data.remark)
+        Xml.append(invoice, 'MailSend', @data.mail_send, skip_nil: true)
+        Xml.append(invoice, 'RoundNum', @data.round_num, skip_nil: true)
+        Xml.append(invoice, 'RtnMsg', @data.rtn_msg, skip_nil: true)
       end
 
       def add_details(invoice)
@@ -96,21 +62,15 @@ module Cetustek
 
       def create_product_item(item)
         product = Ox::Element.new('ProductItem')
-        product << raw_tag('ProductionCode', item.code)
-        product << raw_tag('Description', item.name)
-        product << raw_tag('Quantity', item.quantity)
-        product << raw_tag('Unit', item.unit)
-        product << raw_tag('UnitPrice', item.unit_price)
-        add_dtype(product, item.d_type)
+        Xml.append(product, 'ProductionCode', item.code)
+        Xml.append(product, 'Description', item.name)
+        Xml.append(product, 'Quantity', item.quantity)
+        Xml.append(product, 'Unit', item.unit)
+        Xml.append(product, 'UnitPrice', item.unit_price)
+        # DType (稅別註記) is required on every detail line only for mixed-tax
+        # invoices (TaxType == 9).
+        Xml.append(product, 'DType', item.d_type) if @data.mixed_tax?
         product
-      end
-
-      # DType (稅別註記) is required on every detail line only for mixed-tax
-      # invoices (TaxType == 9).
-      def add_dtype(product, value)
-        return unless @data.mixed_tax?
-
-        product << raw_tag('DType', value)
       end
     end
   end

@@ -1,14 +1,26 @@
 # frozen_string_literal: true
 
 module Cetustek
-  # TaxType (稅別) codes accepted by CreateInvoiceV3 (spec V4.16, Table 1).
+  # TaxType (稅別) codes accepted by CreateInvoiceV3, spec AVM-26-03 Table 1.
   module TaxType
     TAXABLE = 1            # 應稅
     ZERO_RATE = 2          # 零稅率(非經海關出口)
     TAX_FREE = 3           # 免稅
     SPECIAL = 4            # 應稅(特種稅率) — requires TaxRate
     ZERO_RATE_CUSTOMS = 5  # 零稅率(經海關出口)
-    MIXED = 9              # 混合(應稅、零稅率與免稅，限收銀機類型發票)
+    MIXED = 9              # 混合(應稅、零稅率與免稅)
+  end
+
+  # CarrierType (載具類別) codes named in spec AVM-26-03 Table 1. The field is
+  # 6 chars and 依電子整合平台核發填入, so any other code is accepted as-is.
+  module CarrierType
+    MOBILE_BARCODE = '3J0002' # 手機條碼，以「/」起始
+    CITIZEN_CERT = 'CQ0001'   # 自然人憑證條碼，2 碼大寫字母加 14 碼數字
+    CETUSTEK_CARD = 'EJ0011'  # 鯨躍發票卡
+
+    # These carriers 「無顯碼隱碼區分」, so CarrierId1 and CarrierId2 hold the
+    # same value. Member carriers (e.g. 鯨躍發票卡) do carry distinct codes.
+    WITHOUT_HIDDEN_CODE = [MOBILE_BARCODE, CITIZEN_CERT].freeze
   end
 
   # PayWay (付款方式) codes for CreateInvoiceV3, spec AVM-26-03 Table 4.
@@ -54,8 +66,11 @@ module Cetustek
       # Json 回傳才拿得到平台配發的發票日期時間；Intertemporal 回開會讓本機日期失準。
       DEFAULT_RTN_MSG = 'Json'
       MAX_ITEMS = 9999
+      MAX_REMARK_LENGTH = 200
+      ROUND_NUMS = (0..7).freeze
       TAX_TYPES = [TaxType::TAXABLE, TaxType::ZERO_RATE, TaxType::TAX_FREE,
                    TaxType::SPECIAL, TaxType::ZERO_RATE_CUSTOMS, TaxType::MIXED].freeze
+      ZERO_RATE_TAX_TYPES = [TaxType::ZERO_RATE, TaxType::ZERO_RATE_CUSTOMS].freeze
       DONATE_MARKS = [DonateMark::CARRIER, DonateMark::DONATE, DonateMark::PAPER].freeze
 
       attr_reader :order_id, :order_date, :buyer_identifier, :buyer_name,
@@ -82,8 +97,7 @@ module Cetustek
         @donate_mark = attributes[:donate_mark]
         @carrier_type = attributes[:carrier_type]
         @carrier_id1 = attributes[:carrier_id1] || attributes[:carrier_id]
-        # 手機條碼與自然人憑證沒有顯碼隱碼之分，兩欄填相同值。
-        @carrier_id2 = attributes[:carrier_id2] || @carrier_id1
+        @carrier_id2 = attributes[:carrier_id2] || mirrored_carrier_id2
         @npo_ban = attributes[:npo_ban]
         @items = attributes[:items] || []
         @payment_type = attributes[:payment_type]
@@ -102,7 +116,7 @@ module Cetustek
         validate!
       end
 
-      # 混合稅率發票 (限收銀機)：每筆明細需標註 DType。
+      # 混合稅率發票：每筆明細需標註 DType。
       def mixed_tax?
         @tax_type.to_i == TaxType::MIXED
       end
@@ -114,6 +128,11 @@ module Cetustek
 
       private
 
+      # 只有無顯碼隱碼區分的載具能自動補 CarrierId2；會員載具兩碼不同，猜了就是送錯。
+      def mirrored_carrier_id2
+        @carrier_id1 if CarrierType::WITHOUT_HIDDEN_CODE.include?(@carrier_type.to_s)
+      end
+
       def validate!
         raise ArgumentError, 'order_id is required' if blank?(@order_id)
 
@@ -122,6 +141,8 @@ module Cetustek
         validate_donate_mark!
         validate_pay_way!
         validate_tax!
+        validate_remark!
+        validate_round_num!
       end
 
       def validate_order_date!
@@ -147,14 +168,22 @@ module Cetustek
         when DonateMark::CARRIER then validate_carrier!
         when DonateMark::DONATE then validate_npo_ban!
         end
+
+        return if @mail_send.nil? || @donate_mark.to_i == DonateMark::CARRIER
+
+        raise ArgumentError, 'mail_send may only be used when donate_mark is 0 (載具)'
       end
 
+      # CarrierType is left out of the required set on purpose: 鯨躍發票卡
+      # 「載具類別可為空或填 EJ0011」, and a blank value is how the platform is
+      # told to use it.
       def validate_carrier!
-        missing = { buyer_email: @buyer_email, carrier_type: @carrier_type,
-                    carrier_id1: @carrier_id1 }.select { |_name, value| blank?(value) }.keys
+        missing = { buyer_email: @buyer_email, carrier_id1: @carrier_id1,
+                    carrier_id2: @carrier_id2 }.select { |_name, value| blank?(value) }.keys
         return if missing.empty?
 
-        raise ArgumentError, "#{missing.join(', ')} required when donate_mark is 0 (載具)"
+        raise ArgumentError, "#{missing.join(', ')} required when donate_mark is 0 (載具)" \
+                             "#{'; 此載具有顯碼與隱碼之分，請分別填入' if missing == [:carrier_id2]}"
       end
 
       def validate_npo_ban!
@@ -171,6 +200,8 @@ module Cetustek
         unless TAX_TYPES.include?(@tax_type.to_i)
           raise ArgumentError, "tax_type must be one of #{TAX_TYPES.join(', ')}, got #{@tax_type.inspect}"
         end
+
+        validate_zero_reason!
         return unless special_tax?
 
         raise ArgumentError, 'tax_rate is required when tax_type is 4 (特種稅率)' if blank?(@tax_rate)
@@ -179,11 +210,32 @@ module Cetustek
         raise ArgumentError, "invoice_type must be '08' (特種稅額) when tax_type is 4, got #{@invoice_type.inspect}"
       end
 
+      def validate_zero_reason!
+        return if @zero_reason.nil? || ZERO_RATE_TAX_TYPES.include?(@tax_type.to_i)
+
+        raise ArgumentError, 'zero_reason may only be used when tax_type is 2 or 5 (零稅率)'
+      end
+
+      def validate_remark!
+        return if @remark.nil? || @remark.to_s.length <= MAX_REMARK_LENGTH
+
+        raise ArgumentError, "remark must not exceed #{MAX_REMARK_LENGTH} characters"
+      end
+
+      def validate_round_num!
+        return if @round_num.nil? || ROUND_NUMS.include?(@round_num.to_i)
+
+        raise ArgumentError, "round_num must be between #{ROUND_NUMS.first} and #{ROUND_NUMS.last}, " \
+                             "got #{@round_num.inspect}"
+      end
+
       def blank?(value)
         value.nil? || value.to_s.strip.empty?
       end
     end
 
+    # A single 明細 row, spec AVM-26-03 Table 2 (發票) / Table 16 (折讓).
+    # 品名代號、品名、數量、單價 are 必填; 單位 is not.
     class InvoiceItem
       # Per-item 稅別註記 (DType) used for mixed-tax invoices (TaxType == 9).
       DTYPE_MAP = {
@@ -191,6 +243,7 @@ module Cetustek
         zero_rate: 'TZ', # 零稅率商品
         tax_free: 'TN'   # 免稅商品
       }.freeze
+      REQUIRED = %i[code name quantity unit_price].freeze
 
       attr_reader :code, :name, :quantity, :unit_price, :tax_type, :unit
 
@@ -201,12 +254,26 @@ module Cetustek
         @unit_price = attributes[:unit_price]
         @unit = attributes[:unit]
         @tax_type = attributes[:tax_type] || :taxable
+        validate!
       end
 
       # Returns the DType code: '', 'TZ' or 'TN'.
       # Accepts the friendly symbols above or a raw code string.
       def d_type
         DTYPE_MAP.fetch(@tax_type) { @tax_type.to_s }
+      end
+
+      private
+
+      def validate!
+        missing = REQUIRED.select { |name| blank?(public_send(name)) }
+        return if missing.empty?
+
+        raise ArgumentError, "item #{missing.join(', ')} required (品名代號、品名、數量、單價皆必填)"
+      end
+
+      def blank?(value)
+        value.nil? || value.to_s.strip.empty?
       end
     end
   end

@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe Cetustek::Services::ResponseHandler do
-  let(:data) { invoice_data }
+  let(:data) { build_invoice_data }
 
   def response_with(return_value)
     double('response', body: { create_invoice_v3_response: { return: return_value } })
@@ -30,6 +30,10 @@ RSpec.describe Cetustek::Services::ResponseHandler do
     it 'raises with the documented reason when msg is a result code' do
       expect { process('{"msg":"S7"}') }
         .to raise_error(Cetustek::ResultError, /S7 - 訂單號碼已存在/) { |e| expect(e.code).to eq('S7') }
+    end
+
+    it 'raises with the raw body when the JSON is truncated' do
+      expect { process('{"msg":"Success"') }.to raise_error(Cetustek::ResultError, /"msg":"Success"/)
     end
   end
 

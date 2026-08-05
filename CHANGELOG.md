@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-05
+
+比對規格 AVM-26-03 做的 code review 修正:0.8.0 有幾條規則寫得比規格寬或比規格嚴,
+另外把四份重複的 SOAP/XML 樣板收成共用模組。
+
+### Fixed
+- **Breaking:** `carrier_id2` 只在無顯碼隱碼區分的載具(手機條碼 `3J0002`、自然人憑證
+  `CQ0001`)自動鏡射顯碼。會員載具(如鯨躍發票卡 `EJ0011`)兩碼本來就不同,0.8.0 會把顯碼
+  當隱碼送出;現在未填 `carrier_id2` 會直接丟 `ArgumentError`
+- `donate_mark: 0` 不再強制 `carrier_type`:規格註明「使用鯨躍發票卡,電子郵件必填,
+  載具類別可為空或填 EJ0011」,原本的檢查讓這個情境無法送出。必填改為 `buyer_email`
+  與 `carrier_id1`/`carrier_id2`
+- `QueryAllowance.find` 移除規格沒有的 `'nodata'` 哨兵值;非 XML 的回覆(代碼字串)
+  改為丟 `ResultError`,只有真的空回覆才回傳 `nil`
+- 修掉註解裡捏造的規格出處(`spec V4.16`)與 TaxType 9 的「限收銀機類型發票」限制,
+  Table 1 只寫「9:混合(應稅、零稅率與免稅)」
+
+### Added
+- `Cetustek::CarrierType`:`MOBILE_BARCODE` / `CITIZEN_CERT` / `CETUSTEK_CARD` 常數
+- `AllowanceData` 依 Table 15 驗證必填(折讓單號、折讓日期、發票號碼、發票年份、
+  折讓原因、至少一筆明細)與 `round_num` 0-7、`reason` 20 字。原本 `allowance_date`
+  為 nil 會在組 XML 時炸成 `NoMethodError`
+- `InvoiceItem` 依 Table 2/16 驗證 `code`/`name`/`quantity`/`unit_price` 必填(`unit` 選填)
+- `CancelAllowance` 驗證 Table 18 的兩個必填欄位與 20 字上限
+- `InvoiceData` 補上規格寫死的條件與範圍:`zero_reason` 限 `tax_type` 2/5、
+  `mail_send` 限 `donate_mark: 0`、`round_num` 0-7、`remark` 200 字
+
+### Changed
+- **Breaking:** `CancelInvoice` 的 `remark:`(作廢原因)改為必填且限 20 字 —— Table 9 是
+  必填欄位,預設 `'退貨'` 等於幫呼叫端編造理由
+- **Breaking:** 移除 `Services::InvoiceService`,它只剩一次 Savon 呼叫;`CreateInvoice`
+  直接送出
+- `ResponseHandler` 失敗時丟 `ResultError` 本身,與折讓路徑一致。
+  `ResponseHandler::InvalidResponseError` 改為 `ResultError` 的別名常數(deprecated),
+  既有 `rescue InvalidResponseError` 仍然攔得到
+- 新增 `Cetustek::Xml` 與 `Cetustek::Soap`,收掉五份 Savon client 與四份 `raw_tag` 複製;
+  Table 7/10/17/19 共用的代碼列集中在 `ResultCode::COMMON` 與 `ResultCode::DETAILS`。
+  `Cetustek::Queries` 成為 `Cetustek::Soap` 的別名(deprecated)
+
 ## [0.8.0] - 2026-08-04
 
 ### Added
