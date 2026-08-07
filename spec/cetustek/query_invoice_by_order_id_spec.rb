@@ -29,4 +29,25 @@ RSpec.describe Cetustek::QueryInvoiceByOrderId do
   it 'returns the SOAP response' do
     expect(described_class.query('ORD1')).to eq(response)
   end
+
+  describe '.find' do
+    it 'parses the response via Table 13, same as QueryInvoice.find' do
+      xml = <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Invoice XSDVersion="2.8">
+          <OrderID>ORD1</OrderID>
+          <InvoiceNumber>AA00000027</InvoiceNumber>
+        </Invoice>
+      XML
+      allow(response).to receive(:body).and_return({ query_invoice_by_orderid_response: { return: xml } })
+
+      expect(described_class.find('ORD1')).to include(order_id: 'ORD1', invoice_number: 'AA00000027')
+    end
+
+    it 'returns nil for the documented "nodata"' do
+      allow(response).to receive(:body).and_return({ query_invoice_by_orderid_response: { return: 'nodata' } })
+
+      expect(described_class.find('ORD1')).to be_nil
+    end
+  end
 end

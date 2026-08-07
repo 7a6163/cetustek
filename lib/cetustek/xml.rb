@@ -39,5 +39,34 @@ module Cetustek
 
       element << tag(name, value)
     end
+
+    # Shared guard every Query* class needs before it can parse a response
+    # body: nil for an empty answer or one of the documented sentinel strings
+    # (e.g. "nodata"); ResultError for a bare result code; otherwise the
+    # parsed root element, ready for parse_fields.
+    def parse_response(body, nil_values: [])
+      text = body.to_s.strip
+      return nil if text.empty? || nil_values.include?(text)
+
+      ResultCode.raise!(text, ResultCode::COMMON) unless text.start_with?('<')
+
+      root = Ox.parse(text)
+      root.is_a?(Ox::Document) ? root.root : root
+    end
+
+    # Shared response-parsing side: every Query* class turns a response
+    # element into a Hash of snake_case keys, so this lives here once instead
+    # of once per query class.
+    def parse_fields(element, fields)
+      fields.to_h { |field| [snake_case(field), text_of(element, field)] }
+    end
+
+    def text_of(element, name)
+      element&.locate(name)&.first&.text
+    end
+
+    def snake_case(name)
+      name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase.to_sym
+    end
   end
 end

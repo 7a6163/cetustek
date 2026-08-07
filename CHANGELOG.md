@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-08-07
+
+延續 0.9.0 的 code review：統一驗證力度與查詢介面，讓四個查詢類別與
+`CancelInvoice`/`CancelAllowance` 的行為一致。
+
+### Added
+- `QueryInvoice.find`、`QueryInvoiceByOrderId.find`、`QueryInvoiceNumberByOrderId.find`：
+  比照既有的 `QueryAllowance.find`，把 Savon 回應解析成 snake_case 的 Hash（`QueryInvoice`
+  與 `QueryInvoiceByOrderId` 共用 Table 13 格式，含 `:seller`/`:buyer`/`:details`），
+  `nil` 表示空回覆或規格說的 `"nodata"`，非 XML 的代碼字串一律拋 `Cetustek::ResultError`
+- `CancelInvoice` 補上 `invoice_number`/`invoice_year` 必填檢查（Table 9 皆為 Y），
+  原本只驗證 `remark`，另兩個欄位空白時要等伺服器回 `M:?` 才會發現
+
+### Changed
+- 四個查詢類別的 XML 解析共用邏輯(`text_of`/`snake_case`)搬到 `Cetustek::Xml.parse_fields`，
+  不再各自留一份幾乎相同的 private method
+- `QueryInvoice`/`QueryInvoiceNumberByOrderId`/`QueryAllowance` 改用 `Soap#soap_call`，
+  不再手動組 `source`/`rentid`，與 `QueryInvoiceByOrderId`/`CancelInvoice` 等類別一致
+- `QueryInvoice.parse`/`QueryAllowance.parse` 共用的「空值/nodata 判斷、非 XML 代碼丟
+  `ResultError`、解析成 Ox root」邏輯收成 `Cetustek::Xml.parse_response`
+- `QueryInvoice.party` 改名 `parse_party`，跟同一個類別的 `parse` 放在一起看更清楚
+
+### Fixed
+- **Breaking:** `QueryInvoiceNumberByOrderId.find` 原本會把非發票號碼、非 `"nodata"`
+  的回覆(如 `Invalid`)直接當發票號碼回傳；現在會比對 Table 9 的字軌+8碼數字格式，
+  格式不符者一律丟 `Cetustek::ResultError`，跟其他 `Query*.find` 一致
+
 ## [0.9.0] - 2026-08-05
 
 比對規格 AVM-26-03 做的 code review 修正:0.8.0 有幾條規則寫得比規格寬或比規格嚴,

@@ -25,6 +25,81 @@ RSpec.describe 'SOAP queries' do
         message: { invoicenumber: 'AB12345678', invoiceyear: '2024', source: 'SITEPASS', rentid: 'USER' }
       )
     end
+
+    describe '.find' do
+      let(:xml) do
+        <<~XML
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Invoice XSDVersion="2.8">
+            <OrderID>44556655</OrderID>
+            <InvoiceNumber>AA00000027</InvoiceNumber>
+            <InvoiceDate>2011/05/19</InvoiceDate>
+            <InvoiceTime>19:10:49</InvoiceTime>
+            <Seller>
+              <Identifier>53118823</Identifier>
+              <Name>鯨躍科技有限公司</Name>
+              <Address></Address>
+              <PersonInCharge></PersonInCharge>
+              <TelephoneNumber></TelephoneNumber>
+              <FacsimileNumber></FacsimileNumber>
+              <EmailAddress>invoice@cetustek.com.tw</EmailAddress>
+            </Seller>
+            <Buyer>
+              <Identifier>55669988</Identifier>
+              <Name>漢客料理店</Name>
+              <Address></Address>
+              <PersonInCharge></PersonInCharge>
+              <TelephoneNumber></TelephoneNumber>
+              <FacsimileNumber></FacsimileNumber>
+              <EmailAddress>hank@cetustek.com.tw</EmailAddress>
+            </Buyer>
+            <MainRemark></MainRemark>
+            <RandomNumber>0958</RandomNumber>
+            <InvoiceStatus>開立</InvoiceStatus>
+            <DonateMark>0</DonateMark>
+            <SalesAmount>120</SalesAmount>
+            <TaxAmount>6</TaxAmount>
+            <TotalAmount>126</TotalAmount>
+            <Details>
+              <ProductItem>
+                <ProductCode>AA783457</ProductCode>
+                <Description>筆記本(綠色)</Description>
+                <Quantity>1</Quantity>
+                <Unit></Unit>
+                <UnitPrice>60</UnitPrice>
+                <Amount>60</Amount>
+                <SequenceNumber>1</SequenceNumber>
+              </ProductItem>
+            </Details>
+          </Invoice>
+        XML
+      end
+
+      before { allow(response).to receive(:body).and_return({ query_invoice_response: { return: xml } }) }
+
+      it 'parses the response XML into a hash with seller/buyer/details' do
+        result = described_class.find('AA00000027', '2024')
+
+        expect(result[:invoice_number]).to eq('AA00000027')
+        expect(result[:invoice_status]).to eq('開立')
+        expect(result[:seller]).to include(name: '鯨躍科技有限公司', email_address: 'invoice@cetustek.com.tw')
+        expect(result[:buyer]).to include(name: '漢客料理店', identifier: '55669988')
+        expect(result[:details]).to eq(
+          [{ product_code: 'AA783457', description: '筆記本(綠色)', quantity: '1', unit: nil,
+             unit_price: '60', amount: '60', sequence_number: '1' }]
+        )
+      end
+
+      it 'returns nil for an empty response or the documented "nodata"' do
+        expect(described_class.parse(nil)).to be_nil
+        expect(described_class.parse('nodata')).to be_nil
+      end
+
+      it 'raises with the returned code when the answer is not XML' do
+        expect { described_class.parse('M:InvoiceNumber') }
+          .to raise_error(Cetustek::ResultError, /M:InvoiceNumber - 欄位未填或格式錯誤/)
+      end
+    end
   end
 
   describe Cetustek::QueryInvoiceNumberByOrderId do
@@ -34,6 +109,30 @@ RSpec.describe 'SOAP queries' do
         :query_invoice_number_by_orderid,
         message: { orderid: 'ORD1', source: 'SITEPASS', rentid: 'USER' }
       )
+    end
+
+    describe '.find' do
+      it 'returns the bare invoice number' do
+        allow(response).to receive(:body)
+          .and_return({ query_invoice_number_by_orderid_response: { return: 'AA00000027' } })
+
+        expect(described_class.find('ORD1')).to eq('AA00000027')
+      end
+
+      it 'returns nil for the documented "nodata"' do
+        allow(response).to receive(:body)
+          .and_return({ query_invoice_number_by_orderid_response: { return: 'nodata' } })
+
+        expect(described_class.find('ORD1')).to be_nil
+      end
+
+      it 'raises with the returned code when the answer is not a number or "nodata"' do
+        allow(response).to receive(:body)
+          .and_return({ query_invoice_number_by_orderid_response: { return: 'Invalid' } })
+
+        expect { described_class.find('ORD1') }
+          .to raise_error(Cetustek::ResultError, /Invalid - 無效 IP，請通知系統商/)
+      end
     end
   end
 
