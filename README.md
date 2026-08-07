@@ -212,6 +212,10 @@ Cetustek::CancelInvoice.new('AB12345678', 2024, remark: '明細錯誤',
                             return_tax_document_number: '65327645').execute
 ```
 
+`invoice_number` and `invoice_year` are Table 9's other two `必填` fields, and
+raise `ArgumentError` if left blank — the same guaranteed-rejection guarantee
+`InvoiceData`/`AllowanceData` give for their own required fields.
+
 Uploading is not the end of it: the cancellation still has to be confirmed
 manually on the 鯨躍 platform before the invoice counts as void. Any code other
 than `"C0"` raises `Cetustek::ResultError` (`C5 - 該發票已經作廢過`, …), and
@@ -219,10 +223,35 @@ marking your own record as canceled is the caller's job.
 
 ### Query invoices
 
+Each query class has both a raw `.query` (the Savon response, for callers who
+want the untouched SOAP object) and a `.find` that parses the same response
+into a plain Ruby value, mirroring `QueryAllowance` below:
+
 ```ruby
-Cetustek::QueryInvoiceByOrderId.query(order_id)             # by order id
-Cetustek::QueryInvoice.query(invoice_number, invoice_year)  # by invoice number + year
-Cetustek::QueryInvoiceNumberByOrderId.query(order_id)       # just the invoice number
+Cetustek::QueryInvoiceByOrderId.query(order_id)             # raw Savon response
+Cetustek::QueryInvoiceByOrderId.find(order_id)               # parsed Hash, or nil
+Cetustek::QueryInvoice.query(invoice_number, invoice_year)   # raw Savon response
+Cetustek::QueryInvoice.find(invoice_number, invoice_year)    # parsed Hash, or nil
+Cetustek::QueryInvoiceNumberByOrderId.query(order_id)        # raw Savon response
+Cetustek::QueryInvoiceNumberByOrderId.find(order_id)          # bare invoice number String, or nil
+```
+
+`.find` returns `nil` when the platform answers with nothing at all or with
+the documented `"nodata"`; a non-XML answer (a result code) is raised as
+`Cetustek::ResultError`, same as `QueryAllowance.find`.
+
+`QueryInvoice.find`/`QueryInvoiceByOrderId.find` (both share Table 13's XML
+shape) return the fields as snake_case symbols, with `:seller`/`:buyer`
+sub-hashes and the line items under `:details`:
+
+```ruby
+{ order_id: '44556655', invoice_number: 'AA00000027', invoice_date: '2011/05/19',
+  invoice_time: '19:10:49', invoice_status: '開立', donate_mark: '0',
+  sales_amount: '120', tax_amount: '6', total_amount: '126', ctk_url: nil,
+  seller: { identifier: '53118823', name: '鯨躍科技有限公司', ... },
+  buyer: { identifier: '55669988', name: '漢客料理店', ... },
+  details: [{ product_code: 'AA783457', description: '筆記本(綠色)', quantity: '1',
+              unit: nil, unit_price: '60', amount: '60', sequence_number: '1' }] }
 ```
 
 ### Tax-inclusive vs tax-exclusive prices (`hastax`)

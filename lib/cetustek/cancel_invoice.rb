@@ -22,6 +22,8 @@ module Cetustek
 
     # remark 是 Table 9 的必填作廢原因，沒有預設值可用：理由是業務決定的。
     def initialize(invoice_number, invoice_year, remark:, return_tax_document_number: nil)
+      raise ArgumentError, 'invoice_number is required' if invoice_number.to_s.strip.empty?
+      raise ArgumentError, 'invoice_year is required' if invoice_year.to_s.strip.empty?
       raise ArgumentError, 'remark (作廢原因) is required' if remark.to_s.strip.empty?
       raise ArgumentError, "remark must not exceed #{MAX_REMARK_LENGTH} characters" if remark.length > MAX_REMARK_LENGTH
 
