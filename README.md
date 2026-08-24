@@ -50,8 +50,32 @@ Cetustek.configure do |config|
   # Only the order id, invoice number and result code are logged (never the
   # response body); the request XML is logged at debug level on failure.
   config.logger = Rails.logger
+
+  # Optional. :httpi (default, savon's own HTTP stack) or :faraday.
+  # See "SSL on the sandbox endpoint" below — if sandbox calls fail with
+  # `certificate verify failed`, set this to :faraday.
+  config.transport = :faraday
 end
 ```
+
+### SSL on the sandbox endpoint (`certificate verify failed`)
+
+The sandbox endpoint `invoice.cetustek.com.tw` chains to **Certum Trusted Root
+CA**. Savon's default HTTP stack is HTTPI, whose first-choice adapter is
+`httpclient` — and `httpclient` ignores the system trust store, trusting only
+the `cacert.pem` bundled inside the gem, which does not include that root. So
+if anything in your bundle pulls in `httpclient` (plenty of gems do), every
+sandbox call fails with:
+
+```
+SSL_connect ... certificate verify failed (unable to get local issuer certificate)
+```
+
+Production (`www.ei.com.tw`, Sectigo/USERTrust) is unaffected.
+
+Fix it with `config.transport = :faraday`, which goes through Faraday's
+`net_http` adapter and reads the system trust store. The 300s open/read
+timeouts are applied either way.
 
 ## Usage
 
