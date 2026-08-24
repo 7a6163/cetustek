@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-08-24
+
+### Added
+
+- `config.transport` — `:httpi` (預設，維持現有行為) 或 `:faraday`。設成其他值
+  在 `Cetustek.configure` 當下就 raise `ArgumentError`。
+
+### Fixed
+
+- 沙盒端點 `invoice.cetustek.com.tw` 的 `certificate verify failed`：savon 預設
+  的 HTTPI 首選 adapter 是 httpclient，而 httpclient 只認 gem 內附的
+  `cacert.pem`，裡面沒有該端點憑證鏈的根 Certum Trusted Root CA。只要 bundle
+  裡有 httpclient，沙盒開票就會全數失敗。`config.transport = :faraday` 改走
+  Faraday 的 `net_http`，讀系統信任庫。production (`www.ei.com.tw`) 不受影響。
+  Faraday 路徑不能傳 `open_timeout`/`read_timeout`（savon 2.17 的
+  `FaradayMigrationHint::OPTIONS` 會 raise），改由 `client.faraday.options`
+  設定，兩條路徑的 300 秒逾時一致。
+
 ## [0.10.0] - 2026-08-07
 
 延續 0.9.0 的 code review：統一驗證力度與查詢介面，讓四個查詢類別與
