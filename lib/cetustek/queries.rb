@@ -30,7 +30,7 @@ module Cetustek
     # §2.5 QueryInvoicebyOrderid shares this exact XML shape (Table 13), so
     # QueryInvoiceByOrderId#find reuses this instead of duplicating it.
     def self.parse(xml)
-      root = Xml.parse_response(xml, nil_values: %w[nodata])
+      root = Xml.parse_response(xml)
       return nil unless root
 
       data = Xml.parse_fields(root, FIELDS)
@@ -66,7 +66,7 @@ module Cetustek
     # Query* classes — it used to be returned as if it were the number.
     def self.find(order_id)
       body = soap_return(query(order_id), :query_invoice_number_by_orderid).to_s.strip
-      return nil if body.empty? || body == 'nodata'
+      return nil if body.empty? || Xml::NIL_VALUES.include?(body)
       return body if body.match?(FORMAT)
 
       ResultCode.raise!(body, ResultCode::COMMON)
@@ -90,8 +90,8 @@ module Cetustek
     end
 
     # Same query, with the returned XML parsed into a Hash of snake_case keys
-    # plus a :details array. Values are the raw strings from the XML; returns
-    # nil when the platform answers with nothing at all.
+    # plus a :details array. Values are the raw strings from the XML; nil when
+    # the platform answers with nothing at all, or the documented "nodata".
     def self.find(allowance_number)
       parse(soap_return(query(allowance_number), :query_allowance))
     end
