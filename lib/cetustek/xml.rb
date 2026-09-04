@@ -8,6 +8,8 @@ module Cetustek
   # and a single <Invoice>/<Allowance> root carrying XSDVersion.
   module Xml
     XSD_VERSION = '2.8'
+    # 查無資料時平台回的字串，不是結果代碼。
+    NIL_VALUES = %w[nodata].freeze
 
     module_function
 
@@ -41,12 +43,13 @@ module Cetustek
     end
 
     # Shared guard every Query* class needs before it can parse a response
-    # body: nil for an empty answer or one of the documented sentinel strings
-    # (e.g. "nodata"); ResultError for a bare result code; otherwise the
-    # parsed root element, ready for parse_fields.
-    def parse_response(body, nil_values: [])
+    # body: nil for an empty answer or the documented "nodata" sentinel;
+    # ResultError for a bare result code; otherwise the parsed root element,
+    # ready for parse_fields. "nodata" is not per-query — every 查詢 answers
+    # with it when the number simply isn't there, so it lives here.
+    def parse_response(body)
       text = body.to_s.strip
-      return nil if text.empty? || nil_values.include?(text)
+      return nil if text.empty? || NIL_VALUES.include?(text)
 
       ResultCode.raise!(text, ResultCode::COMMON) unless text.start_with?('<')
 

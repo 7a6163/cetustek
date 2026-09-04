@@ -196,6 +196,10 @@ RSpec.describe 'SOAP queries' do
         )
       end
 
+      it 'returns nil for the documented "nodata"' do
+        expect(described_class.parse('nodata')).to be_nil
+      end
+
       it 'returns nil when the platform answers with nothing' do
         expect(described_class.parse(nil)).to be_nil
         expect(described_class.parse('  ')).to be_nil

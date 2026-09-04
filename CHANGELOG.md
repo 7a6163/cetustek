@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-09-04
+
+### Fixed
+
+- `QueryAllowance.find` 查無折讓單時會 raise `ResultError: nodata`，而不是回 nil。
+  `nodata` 的判斷原本是 `Xml.parse_response` 的 `nil_values:` 參數，只有
+  `QueryInvoice` 有傳。改成 `Xml::NIL_VALUES` 常數，所有查詢共用同一個判斷。
+
 ## [0.11.0] - 2026-08-24
 
 ### Added
