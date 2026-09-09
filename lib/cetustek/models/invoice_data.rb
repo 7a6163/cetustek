@@ -160,7 +160,7 @@ module Cetustek
       def validate_donate_mark!
         raise ArgumentError, 'donate_mark is required (0 載具, 1 捐贈, 2 紙本)' if blank?(@donate_mark)
 
-        unless DONATE_MARKS.include?(@donate_mark.to_i)
+        unless code_in?(DONATE_MARKS, @donate_mark)
           raise ArgumentError, "donate_mark must be 0 (載具), 1 (捐贈) or 2 (紙本), got #{@donate_mark.inspect}"
         end
 
@@ -197,7 +197,7 @@ module Cetustek
       end
 
       def validate_tax!
-        unless TAX_TYPES.include?(@tax_type.to_i)
+        unless code_in?(TAX_TYPES, @tax_type)
           raise ArgumentError, "tax_type must be one of #{TAX_TYPES.join(', ')}, got #{@tax_type.inspect}"
         end
 
@@ -217,20 +217,26 @@ module Cetustek
       end
 
       def validate_remark!
-        return if @remark.nil? || @remark.to_s.length <= MAX_REMARK_LENGTH
+        return if @remark.to_s.length <= MAX_REMARK_LENGTH
 
         raise ArgumentError, "remark must not exceed #{MAX_REMARK_LENGTH} characters"
       end
 
       def validate_round_num!
-        return if @round_num.nil? || ROUND_NUMS.include?(@round_num.to_i)
+        return if @round_num.nil? || code_in?(ROUND_NUMS, @round_num)
 
         raise ArgumentError, "round_num must be between #{ROUND_NUMS.first} and #{ROUND_NUMS.last}, " \
                              "got #{@round_num.inspect}"
       end
 
+      # 'x'.to_i 是 0，而 0 是「載具」「四捨五入」的有效代碼 —— 用 to_i 比對，
+      # 亂填的值會被當成 0 靜靜送出去。代碼一律轉字串比對。
+      def code_in?(codes, value)
+        codes.map(&:to_s).include?(value.to_s)
+      end
+
       def blank?(value)
-        value.nil? || value.to_s.strip.empty?
+        value.to_s.strip.empty?
       end
     end
 
