@@ -9,3 +9,6 @@
 /vendor/
 .rspec_status
 Gemfile.lock
+
+# mutant local cache
+.mutant/
