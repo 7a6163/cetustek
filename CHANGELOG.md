@@ -5,11 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.0] - 2026-09-09
+
+### Fixed
+
+- 亂填的代碼欄位不再被當成 0 靜靜送出去。`'x'.to_i` 是 `0`，而 `0` 是
+  `donate_mark` 的「載具」與 `round_num` 的「四捨五入」有效代碼，所以
+  `donate_mark: 'x'` 原本不會被擋，會被當成載具發票開出去。`tax_type: '1abc'`
+  會變成應稅，`CreateAllowance` 的 `check_allowance: 'x'` 也能通過「必須為 0」
+  的檢查。發票與折讓兩條路徑改用共用的字串比對。
 
 ### Changed
 
 - **Breaking**: 最低 Ruby 版本提高到 3.3.0。3.0 已於 2024-04 EOL，不再收安全更新。
+- **Breaking**: 上述代碼欄位原本會被默默接受的值現在會 raise `ArgumentError`。
+  影響的是本來就送錯值的呼叫端 —— 那些請求送到平台也是失敗，只是現在提早失敗。
+- `Cetustek::Xml` 從 `module_function` 改為 `extend self`。`Xml.foo` 與
+  include 後的呼叫方式都不變。
+
+### Internal
+
+- 導入 mutant 做 mutation testing（`bundle exec mutant run`）。mutation coverage
+  從 57.42% 提升到 97.13%，行覆蓋率 100%。上面那個 bug 就是這樣挖出來的。
+- 每週排程跑 mutation testing，掉出門檻才失敗（`.github/workflows/mutant.yml`）。
+- 移除 `configuration.rb` 裡與 `lib/cetustek.rb` 重複的 `Cetustek.config` 定義
+  （被後者蓋掉的死碼）。
 
 ## [0.11.1] - 2026-09-04
 
