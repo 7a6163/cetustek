@@ -169,8 +169,8 @@ RSpec.describe Cetustek::Models::InvoiceData do
     # 'x'.to_i 是 0，而 0 是「載具」「四捨五入」的有效代碼：用 to_i 比對的話，
     # 亂填的代碼會被當成 0 靜靜開出去，而不是擋在這裡。
     it 'rejects a non-numeric 代碼 instead of letting to_i turn it into 0' do
-      expect { build_invoice_data(tax_type: 'x') }.to raise_error(ArgumentError, /tax_type must be one of/)
-      expect { build_invoice_data(donate_mark: 'x') }.to raise_error(ArgumentError, /donate_mark must be 0/)
+      expect { build_invoice_data(tax_type: 'x') }.to raise_error(ArgumentError, /tax_type must be one of 1, 2, 3, 4, 5, 9, got "x"/)
+      expect { build_invoice_data(donate_mark: 'x') }.to raise_error(ArgumentError, /2 \(紙本\), got "x"/)
       expect { build_invoice_data(round_num: 'x') }.to raise_error(ArgumentError, /round_num must be between/)
     end
 

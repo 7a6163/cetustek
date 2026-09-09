@@ -84,6 +84,8 @@ RSpec.describe Cetustek::CancelAllowance do
 
   it 'requires both Table 18 fields' do
     expect { described_class.new('', '明細錯誤') }.to raise_error(ArgumentError, /allowance_number/)
+    expect { described_class.new('   ', '明細錯誤') }.to raise_error(ArgumentError, /allowance_number/)
+    expect { described_class.new('AA20130214163520', '  ') }.to raise_error(ArgumentError, /reason/)
     expect { described_class.new('AA20130214163520', nil) }.to raise_error(ArgumentError, /reason/)
     expect { described_class.new('AA20130214163520', '因' * 21) }.to raise_error(ArgumentError, /20 characters/)
   end
@@ -123,6 +125,17 @@ RSpec.describe Cetustek::Models::AllowanceData do
   it 'accepts 零稅率 and 免稅' do
     expect(build_allowance_data(tax_type: 2).tax_type).to eq(2)
     expect(build_allowance_data(tax_type: '3').tax_type).to eq('3')
+  end
+
+  it 'treats a whitespace-only 必填 field as missing' do
+    expect { build_allowance_data(allowance_number: '   ') }
+      .to raise_error(ArgumentError, 'allowance_number required')
+  end
+
+  it 'keeps the optional 買受人 fields Table 15 allows' do
+    data = build_allowance_data(buyer_address: '台北市', buyer_email: 'a@b.c', round_num: 2)
+
+    expect([data.buyer_address, data.buyer_email, data.round_num]).to eq(['台北市', 'a@b.c', 2])
   end
 
   it 'requires the fields Table 15 marks 必填' do

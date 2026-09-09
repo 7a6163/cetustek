@@ -71,6 +71,9 @@ RSpec.describe Cetustek::CancelInvoice do
   it 'requires invoice_number and invoice_year, both 必填 in Table 9' do
     expect { described_class.new('', 2024, remark: '退貨') }.to raise_error(ArgumentError, /invoice_number/)
     expect { described_class.new('AB12345678', '', remark: '退貨') }.to raise_error(ArgumentError, /invoice_year/)
+    # 全空白也算沒填
+    expect { described_class.new('   ', 2024, remark: '退貨') }.to raise_error(ArgumentError, /invoice_number/)
+    expect { described_class.new('AB12345678', ' ', remark: '退貨') }.to raise_error(ArgumentError, /invoice_year/)
   end
 
   it 'rejects a 作廢原因 longer than the 20 characters Table 9 allows' do

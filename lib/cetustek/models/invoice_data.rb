@@ -279,7 +279,7 @@ module Cetustek
       end
 
       def blank?(value)
-        value.nil? || value.to_s.strip.empty?
+        value.to_s.strip.empty?
       end
     end
   end
