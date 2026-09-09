@@ -11,7 +11,10 @@ module Cetustek
     # 查無資料時平台回的字串，不是結果代碼。
     NIL_VALUES = %w[nodata].freeze
 
-    module_function
+    # extend self（而不是 module_function）：module_function 會把方法複製一份到
+    # singleton，mutation testing 改到的是 instance method 那份，正式碼呼叫的
+    # 卻是複本，整個模組的變異都殺不掉。
+    extend self
 
     def document(root_name)
       doc = Ox::Document.new

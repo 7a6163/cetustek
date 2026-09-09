@@ -29,4 +29,40 @@ RSpec.describe Cetustek::Soap do
     expect { Cetustek.configure { |c| c.transport = :typhoeus } }
       .to raise_error(ArgumentError, /transport must be one of httpi, faraday/)
   end
+
+  describe 'the credentials every operation sends' do
+    before do
+      Cetustek.configure do |c|
+        c.site_id = 'SITE'
+        c.password = 'PASS'
+        c.username = 'USER'
+      end
+    end
+
+    it 'builds source from 網站代碼 + APIPassword, in that order' do
+      expect(caller_object.source).to eq('SITEPASS')
+    end
+
+    it 'sends the 租賃者統編 as rentid' do
+      expect(caller_object.rentid).to eq('USER')
+    end
+
+    it 'merges source and rentid into every call message' do
+      client = instance_double(Savon::Client)
+      allow(Savon).to receive(:client).and_return(client)
+      allow(client).to receive(:call).and_return(:response)
+
+      expect(caller_object.soap_call(:query_invoice, invoicenumber: 'AB1')).to eq(:response)
+      expect(client).to have_received(:call).with(
+        :query_invoice, message: { invoicenumber: 'AB1', source: 'SITEPASS', rentid: 'USER' }
+      )
+    end
+  end
+
+  describe '#soap_return' do
+    it 'digs the return value out of the operation-named response body' do
+      response = double('response', body: { query_invoice_response: { return: 'AB12345678' } })
+      expect(caller_object.soap_return(response, :query_invoice)).to eq('AB12345678')
+    end
+  end
 end
