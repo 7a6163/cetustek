@@ -40,14 +40,4 @@ module Cetustek
       @environment == :sandbox
     end
   end
-
-  class << self
-    def configure
-      yield(config)
-    end
-
-    def config
-      @config ||= Configuration.new
-    end
-  end
 end

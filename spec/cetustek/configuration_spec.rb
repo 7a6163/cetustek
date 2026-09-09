@@ -33,3 +33,22 @@ RSpec.describe Cetustek::Configuration do
     expect([config.site_id, config.username, config.password]).to eq(%w[SITE USER PASS])
   end
 end
+
+RSpec.describe Cetustek do
+  around do |example|
+    original = described_class.instance_variable_get(:@config)
+    example.run
+    described_class.instance_variable_set(:@config, original)
+  end
+
+  it 'memoizes a single global configuration' do
+    expect(described_class.config).to be_a(Cetustek::Configuration)
+    expect(described_class.config).to equal(described_class.config)
+  end
+
+  it 'yields the global configuration to .configure' do
+    described_class.configure { |c| c.site_id = 'SITE' }
+
+    expect(described_class.config.site_id).to eq('SITE')
+  end
+end
