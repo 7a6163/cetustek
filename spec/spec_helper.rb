@@ -20,6 +20,7 @@ end
 
 require 'cetustek'
 require_relative 'support/factories'
+require_relative 'support/soap_client'
 
 RSpec.configure do |config|
   config.include Factories
