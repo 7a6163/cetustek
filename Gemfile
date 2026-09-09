@@ -10,3 +10,6 @@ group :test do
   gem 'simplecov-cobertura', require: false
   gem 'webmock', require: false
 end
+
+# mutation testing: bundle exec mutant run
+gem 'mutant-rspec', require: false

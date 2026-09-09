@@ -35,6 +35,22 @@ RSpec.describe Cetustek::Models::InvoiceData do
     it 'is true for the MIXED constant' do
       expect(build_invoice_data(tax_type: Cetustek::TaxType::MIXED).mixed_tax?).to be(true)
     end
+
+    it 'is true when tax_type arrives as the string "9"' do
+      expect(build_invoice_data(tax_type: '9').mixed_tax?).to be(true)
+    end
+  end
+
+  describe 'optional buyer fields' do
+    it 'keeps every 選填 買受人欄位 the caller passes' do
+      attrs = { buyer_identifier: '12345678', buyer_name: '買方', buyer_email: 'a@b.c',
+                buyer_address: '台北市', buyer_person_in_charge: '負責人',
+                buyer_telephone: '0212345678', buyer_facsimile: '0287654321',
+                buyer_customer_number: 'C001' }
+      data = build_invoice_data(attrs)
+
+      expect(attrs.keys.to_h { |k| [k, data.public_send(k)] }).to eq(attrs)
+    end
   end
 
   describe 'carrier codes' do
@@ -54,6 +70,12 @@ RSpec.describe Cetustek::Models::InvoiceData do
       end.to raise_error(ArgumentError, /carrier_id2 required.*顯碼與隱碼/)
     end
 
+    it 'matches the carrier constant even when carrier_type is a symbol' do
+      data = build_invoice_data(donate_mark: 0, carrier_type: :'3J0002', carrier_id: '/K.1TI+P',
+                                buyer_email: 'a@b.c')
+      expect(data.carrier_id2).to eq('/K.1TI+P')
+    end
+
     it 'keeps carrier_id as an alias of carrier_id1' do
       data = build_invoice_data(donate_mark: 0, carrier_type: Cetustek::CarrierType::MOBILE_BARCODE,
                                 carrier_id1: 'X', buyer_email: 'a@b.c')
@@ -64,21 +86,23 @@ RSpec.describe Cetustek::Models::InvoiceData do
   describe 'validation' do
     it 'requires order_id, order_date and items' do
       expect { build_invoice_data(order_id: nil) }.to raise_error(ArgumentError, /order_id/)
-      expect { build_invoice_data(order_date: nil) }.to raise_error(ArgumentError, /order_date/)
+      expect { build_invoice_data(order_date: nil) }.to raise_error(ArgumentError, /order_date is required/)
       expect { build_invoice_data(items: []) }.to raise_error(ArgumentError, /items/)
     end
 
     it 'rejects an order_date that is not a date' do
-      expect { build_invoice_data(order_date: '2024/01/02') }.to raise_error(ArgumentError, /must be a Date/)
+      expect { build_invoice_data(order_date: '2024/01/02') }
+        .to raise_error(ArgumentError, /must be a Date or Time, got String/)
     end
 
     it 'requires donate_mark and payment_type' do
-      expect { build_invoice_data(donate_mark: nil) }.to raise_error(ArgumentError, /donate_mark/)
-      expect { build_invoice_data(payment_type: nil) }.to raise_error(ArgumentError, /payment_type/)
+      expect { build_invoice_data(donate_mark: nil) }.to raise_error(ArgumentError, /donate_mark is required/)
+      expect { build_invoice_data(payment_type: nil) }.to raise_error(ArgumentError, /payment_type is required/)
     end
 
     it 'rejects an unknown donate_mark' do
-      expect { build_invoice_data(donate_mark: 3) }.to raise_error(ArgumentError, /donate_mark must be/)
+      expect { build_invoice_data(donate_mark: 3) }
+        .to raise_error(ArgumentError, /donate_mark must be 0 \(載具\), 1 \(捐贈\) or 2 \(紙本\), got 3/)
     end
 
     it 'requires email and both carrier codes when storing to a carrier (donate_mark 0)' do
@@ -104,18 +128,57 @@ RSpec.describe Cetustek::Models::InvoiceData do
       expect { build_invoice_data(round_num: 8) }.to raise_error(ArgumentError, /round_num/)
     end
 
+    it 'accepts every round_num in the documented 0-7 range' do
+      expect((0..7).map { |n| build_invoice_data(round_num: n).round_num }).to eq((0..7).to_a)
+    end
+
     it 'holds remark to the 200 characters Table 1 allows' do
       expect { build_invoice_data(remark: '註' * 201) }.to raise_error(ArgumentError, /200 characters/)
     end
 
+    it 'accepts a remark of exactly 200 characters' do
+      expect(build_invoice_data(remark: '註' * 200).remark.length).to eq(200)
+    end
+
+    it "rejects more than #{Cetustek::Models::InvoiceData::MAX_ITEMS} 明細 lines" do
+      items = Array.new(Cetustek::Models::InvoiceData::MAX_ITEMS + 1, build_invoice_item)
+      expect { build_invoice_data(items: items) }.to raise_error(ArgumentError, /must not exceed 9999 lines/)
+    end
+
+    it 'treats a whitespace-only 必填 field as missing' do
+      expect { build_invoice_data(order_id: '   ') }.to raise_error(ArgumentError, /order_id is required/)
+      expect { build_invoice_data(payment_type: ' ') }.to raise_error(ArgumentError, /payment_type is required/)
+      expect { build_invoice_data(donate_mark: '') }.to raise_error(ArgumentError, /donate_mark is required/)
+    end
+
+    it 'requires attributes at all' do
+      expect { described_class.new }.to raise_error(ArgumentError, /order_id is required/)
+    end
+
     it 'requires a 3-7 digit 捐贈碼 when donating (donate_mark 1)' do
       expect { build_invoice_data(donate_mark: 1) }.to raise_error(ArgumentError, /npo_ban/)
-      expect { build_invoice_data(donate_mark: 1, npo_ban: '12') }.to raise_error(ArgumentError, /npo_ban/)
+      expect { build_invoice_data(donate_mark: 1, npo_ban: '12') }.to raise_error(ArgumentError, /got "12"/)
       expect(build_invoice_data(donate_mark: 1, npo_ban: '25885').npo_ban).to eq('25885')
     end
 
     it 'rejects an unknown tax_type' do
-      expect { build_invoice_data(tax_type: 7) }.to raise_error(ArgumentError, /tax_type must be/)
+      expect { build_invoice_data(tax_type: 7) }
+        .to raise_error(ArgumentError, /tax_type must be one of 1, 2, 3, 4, 5, 9, got 7/)
+    end
+
+    # 'x'.to_i 是 0，而 0 是「載具」「四捨五入」的有效代碼：用 to_i 比對的話，
+    # 亂填的代碼會被當成 0 靜靜開出去，而不是擋在這裡。
+    it 'rejects a non-numeric 代碼 instead of letting to_i turn it into 0' do
+      expect { build_invoice_data(tax_type: 'x') }.to raise_error(ArgumentError, /tax_type must be one of 1, 2, 3, 4, 5, 9, got "x"/)
+      expect { build_invoice_data(donate_mark: 'x') }.to raise_error(ArgumentError, /2 \(紙本\), got "x"/)
+      expect { build_invoice_data(round_num: 'x') }.to raise_error(ArgumentError, /round_num must be between/)
+    end
+
+    it 'accepts tax_type as a string, the way a form or ENV hands it over' do
+      expect(build_invoice_data(tax_type: '1').tax_type).to eq('1')
+      expect(build_invoice_data(tax_type: '9').mixed_tax?).to be(true)
+      expect(build_invoice_data(tax_type: '5', zero_reason: '71').zero_reason).to eq('71')
+      expect { build_invoice_data(tax_type: '7') }.to raise_error(ArgumentError, /tax_type must be/)
     end
 
     it 'does not assume 5% for 特種稅率 (tax_type 4)' do
@@ -129,6 +192,12 @@ RSpec.describe Cetustek::Models::InvoiceData do
 
     it 'accepts a fully specified 特種稅額 invoice' do
       data = build_invoice_data(tax_type: 4, tax_rate: 0.15, invoice_type: '08')
+      expect(data.special_tax?).to be(true)
+      expect(data.tax_rate).to eq(0.15)
+    end
+
+    it 'recognises 特種稅率 given as a string' do
+      data = build_invoice_data(tax_type: '4', tax_rate: 0.15, invoice_type: '08')
       expect(data.special_tax?).to be(true)
       expect(data.tax_rate).to eq(0.15)
     end

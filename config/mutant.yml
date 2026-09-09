@@ -1,0 +1,13 @@
+# 對 lib/ 全部 subject 跑 mutation testing：bundle exec mutant run
+# 開源專案用 --usage opensource，不需要 license key。
+usage: opensource
+integration:
+  name: rspec
+requires:
+  - cetustek
+matcher:
+  subjects:
+    - Cetustek*
+coverage_criteria:
+  timeout: false
+  process_abort: true

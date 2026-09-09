@@ -11,6 +11,21 @@ RSpec.describe Cetustek::Configuration do
     expect(config.production?).to be(false)
   end
 
+  it 'defaults to the HTTPI transport' do
+    expect(config.transport).to eq(:httpi)
+  end
+
+  it 'rejects a transport the gem has no client for' do
+    expect { config.transport = :typhoeus }
+      .to raise_error(ArgumentError, 'transport must be one of httpi, faraday, got :typhoeus')
+    expect(config.transport).to eq(:httpi)
+  end
+
+  it 'accepts faraday' do
+    config.transport = :faraday
+    expect(config.transport).to eq(:faraday)
+  end
+
   it 'exposes the sandbox WSDL url by default' do
     expect(config.url).to eq('https://invoice.cetustek.com.tw/InvoiceMultiWeb/InvoiceAPI?wsdl')
   end
@@ -31,5 +46,24 @@ RSpec.describe Cetustek::Configuration do
     config.password = 'PASS'
 
     expect([config.site_id, config.username, config.password]).to eq(%w[SITE USER PASS])
+  end
+end
+
+RSpec.describe Cetustek do
+  around do |example|
+    original = described_class.instance_variable_get(:@config)
+    example.run
+    described_class.instance_variable_set(:@config, original)
+  end
+
+  it 'memoizes a single global configuration' do
+    expect(described_class.config).to be_a(Cetustek::Configuration)
+    expect(described_class.config).to equal(described_class.config)
+  end
+
+  it 'yields the global configuration to .configure' do
+    described_class.configure { |c| c.site_id = 'SITE' }
+
+    expect(described_class.config.site_id).to eq('SITE')
   end
 end

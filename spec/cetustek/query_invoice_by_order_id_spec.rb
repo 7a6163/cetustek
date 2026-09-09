@@ -42,6 +42,9 @@ RSpec.describe Cetustek::QueryInvoiceByOrderId do
       allow(response).to receive(:body).and_return({ query_invoice_by_orderid_response: { return: xml } })
 
       expect(described_class.find('ORD1')).to include(order_id: 'ORD1', invoice_number: 'AA00000027')
+      expect(client).to have_received(:call).with(
+        :query_invoice_by_orderid, message: { orderid: 'ORD1', source: 'SITEPASS', rentid: 'USER' }
+      )
     end
 
     it 'returns nil for the documented "nodata"' do

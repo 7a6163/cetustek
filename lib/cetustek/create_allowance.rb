@@ -21,7 +21,8 @@ module Cetustek
     # check_allowance 只剩 0（已確認的折讓單）：規格 §2.9 已刪除 1，
     # 114/01/01 起上傳的折讓單皆為已確認。
     def initialize(allowance_data, check_allowance: 0)
-      raise ArgumentError, 'check_allowance must be 0 (114/01/01 起折讓單皆為已確認)' unless check_allowance.to_i.zero?
+      # to_i 會把 'x' 也變成 0，字串比對才擋得住亂填的值。
+      raise ArgumentError, 'check_allowance must be 0 (114/01/01 起折讓單皆為已確認)' unless check_allowance.to_s == '0'
 
       @data = allowance_data
       @check_allowance = 0

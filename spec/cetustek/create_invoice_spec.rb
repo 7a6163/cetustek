@@ -30,6 +30,32 @@ RSpec.describe Cetustek::CreateInvoice do
     end
   end
 
+  # ResponseHandler 拿 invoice_data 去記 log 的訂單編號；傳錯東西進去要看得出來
+  it 'hands the invoice data to the response handler, so logs carry the order id' do
+    logger = instance_double(Logger, info: nil, error: nil, debug: nil)
+    Cetustek.config.logger = logger
+
+    described_class.new(data).execute
+
+    expect(logger).to have_received(:info).with('CreateInvoiceV3 ORD1 GT68514542')
+  ensure
+    Cetustek.config.logger = nil
+  end
+
+  # 失敗時要有 XML 可以進 debug log，才查得出平台為什麼退件
+  it 'hands the sent XML to the response handler, so failures can log it' do
+    logger = instance_double(Logger, info: nil, error: nil, debug: nil)
+    Cetustek.config.logger = logger
+    allow(client).to receive(:call)
+      .and_return(double('response', body: { create_invoice_v3_response: { return: 'S1' } }))
+
+    expect { described_class.new(data).execute }.to raise_error(Cetustek::ResultError)
+
+    expect(logger).to have_received(:debug).with(/<OrderId>ORD1<\/OrderId>/)
+  ensure
+    Cetustek.config.logger = nil
+  end
+
   it 'passes the order-supplied hastax through' do
     described_class.new(build_invoice_data(hastax: 0)).execute
     expect(client).to have_received(:call) { |_op, message:| expect(message[:hastax]).to eq(0) }

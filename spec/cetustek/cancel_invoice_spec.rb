@@ -26,9 +26,15 @@ RSpec.describe Cetustek::CancelInvoice do
 
     expect(client).to have_received(:call) do |operation, message:|
       expect(operation).to eq(:cancel_invoice)
-      expect(message[:invoicexml]).to include('<InvoiceNumber>AB12345678</InvoiceNumber>')
-      expect(message[:invoicexml]).to include('<InvoiceYear>2024</InvoiceYear>')
-      expect(message[:invoicexml]).to include('<Remark>退貨</Remark>')
+      # 整份文件比對：根元素名稱或欄位順序跑掉，平台就吃不下這張作廢單
+      expect(message[:invoicexml]).to eq(<<~XML)
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Invoice XSDVersion="2.8">
+          <InvoiceNumber>AB12345678</InvoiceNumber>
+          <InvoiceYear>2024</InvoiceYear>
+          <Remark>退貨</Remark>
+        </Invoice>
+      XML
       expect(message[:source]).to eq('SITEPASS')
       expect(message[:rentid]).to eq('USER')
     end
@@ -65,6 +71,9 @@ RSpec.describe Cetustek::CancelInvoice do
   it 'requires invoice_number and invoice_year, both 必填 in Table 9' do
     expect { described_class.new('', 2024, remark: '退貨') }.to raise_error(ArgumentError, /invoice_number/)
     expect { described_class.new('AB12345678', '', remark: '退貨') }.to raise_error(ArgumentError, /invoice_year/)
+    # 全空白也算沒填
+    expect { described_class.new('   ', 2024, remark: '退貨') }.to raise_error(ArgumentError, /invoice_number/)
+    expect { described_class.new('AB12345678', ' ', remark: '退貨') }.to raise_error(ArgumentError, /invoice_year/)
   end
 
   it 'rejects a 作廢原因 longer than the 20 characters Table 9 allows' do

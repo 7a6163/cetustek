@@ -9,14 +9,18 @@ SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new([
   SimpleCov::Formatter::CoberturaFormatter
 ])
 
-SimpleCov.start do
-  add_filter '/spec/'
-  add_filter '/vendor/'
-  minimum_coverage 85
+# mutant 在同一個 process 跑 rspec，跑覆蓋率只是浪費又會蓋掉 coverage/ 產物
+unless defined?(Mutant)
+  SimpleCov.start do
+    add_filter '/spec/'
+    add_filter '/vendor/'
+    minimum_coverage 85
+  end
 end
 
 require 'cetustek'
 require_relative 'support/factories'
+require_relative 'support/soap_client'
 
 RSpec.configure do |config|
   config.include Factories

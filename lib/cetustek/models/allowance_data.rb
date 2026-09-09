@@ -53,7 +53,7 @@ module Cetustek
       end
 
       def validate_tax_type!
-        return if TAX_TYPES.include?(@tax_type.to_i)
+        return if code_in?(TAX_TYPES, @tax_type)
 
         raise ArgumentError, "tax_type must be 1 (應稅), 2 (零稅率) or 3 (免稅), got #{@tax_type.inspect}"
       end
@@ -65,14 +65,19 @@ module Cetustek
       end
 
       def validate_round_num!
-        return if @round_num.nil? || ROUND_NUMS.include?(@round_num.to_i)
+        return if @round_num.nil? || code_in?(ROUND_NUMS, @round_num)
 
         raise ArgumentError, "round_num must be between #{ROUND_NUMS.first} and #{ROUND_NUMS.last}, " \
                              "got #{@round_num.inspect}"
       end
 
+      # 見 InvoiceData#code_in?：to_i 會把亂填的代碼變成 0，而 0 是有效代碼。
+      def code_in?(codes, value)
+        codes.map(&:to_s).include?(value.to_s)
+      end
+
       def blank?(value)
-        value.nil? || value.to_s.strip.empty?
+        value.to_s.strip.empty?
       end
     end
   end
