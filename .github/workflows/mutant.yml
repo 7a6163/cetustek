@@ -1,0 +1,48 @@
+name: Mutation Testing
+
+# 每次 PR 都跑會一直紅：還有 ~120 個存活變異，絕大多數是等價變異（strip/lstrip、
+# 驗證過後的 to_i/Integer()），殺不掉也不該殺。所以改成排程跑，只在
+# mutation coverage 掉到門檻以下時才失敗。
+on:
+  schedule:
+    - cron: '0 3 * * 1' # 每週一 03:00 UTC
+  workflow_dispatch:
+
+env:
+  MUTATION_COVERAGE_FLOOR: '97.0'
+
+jobs:
+  mutant:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+        bundler-cache: true
+
+    - name: Run mutant
+      run: |
+        set -o pipefail
+        # 有存活變異時 mutant 會 exit 非 0，這裡由分數決定成敗
+        bundle exec mutant run | tee mutant.log || true
+
+        score=$(grep -oE 'Coverage: +[0-9.]+' mutant.log | tail -1 | grep -oE '[0-9.]+')
+        if [ -z "$score" ]; then
+          echo "::error::mutant 沒有產出 coverage，看上面的輸出"
+          exit 1
+        fi
+
+        echo "mutation coverage: ${score}% (門檻 ${MUTATION_COVERAGE_FLOOR}%)" >> "$GITHUB_STEP_SUMMARY"
+        awk -v s="$score" -v f="$MUTATION_COVERAGE_FLOOR" \
+          'BEGIN { if (s + 0 < f + 0) { printf "::error::mutation coverage %.2f%% 低於門檻 %.2f%%\n", s, f; exit 1 } }'
+
+    - name: Upload mutant log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: mutant-log
+        path: mutant.log
