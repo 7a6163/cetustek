@@ -11,6 +11,21 @@ RSpec.describe Cetustek::Configuration do
     expect(config.production?).to be(false)
   end
 
+  it 'defaults to the HTTPI transport' do
+    expect(config.transport).to eq(:httpi)
+  end
+
+  it 'rejects a transport the gem has no client for' do
+    expect { config.transport = :typhoeus }
+      .to raise_error(ArgumentError, 'transport must be one of httpi, faraday, got :typhoeus')
+    expect(config.transport).to eq(:httpi)
+  end
+
+  it 'accepts faraday' do
+    config.transport = :faraday
+    expect(config.transport).to eq(:faraday)
+  end
+
   it 'exposes the sandbox WSDL url by default' do
     expect(config.url).to eq('https://invoice.cetustek.com.tw/InvoiceMultiWeb/InvoiceAPI?wsdl')
   end

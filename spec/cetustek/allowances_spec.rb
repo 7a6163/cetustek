@@ -28,11 +28,29 @@ RSpec.describe Cetustek::CreateAllowance do
       expect(operation).to eq(:create_allowance)
       expect(message[:checkallowance]).to eq(0)
       expect(message[:source]).to eq('SITEPASS')
-      xml = message[:allowancexml]
-      expect(xml).to include('<AllowanceNumber>AA20130214163520</AllowanceNumber>')
-      expect(xml).to include('<AllowanceDate>2024/02/16</AllowanceDate>')
-      expect(xml).to include('<Unit>本</Unit>')
-      expect(xml).to include('<UnitPrice>800</UnitPrice>')
+      # 整份文件比對：根元素、Details 包裝與欄位順序都得跟 Table 15/16 對上
+      expect(message[:allowancexml]).to eq(<<~XML)
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Allowance XSDVersion="2.8">
+          <AllowanceNumber>AA20130214163520</AllowanceNumber>
+          <AllowanceDate>2024/02/16</AllowanceDate>
+          <InvoiceNumber>AA10000000</InvoiceNumber>
+          <InvoiceYear>2024</InvoiceYear>
+          <BuyerAddress></BuyerAddress>
+          <BuyerEmailAddress></BuyerEmailAddress>
+          <TaxType>1</TaxType>
+          <Reason>退回</Reason>
+          <Details>
+            <ProductItem>
+              <ProductionCode>0001</ProductionCode>
+              <Description>禮券</Description>
+              <Quantity>1</Quantity>
+              <Unit>本</Unit>
+              <UnitPrice>800</UnitPrice>
+            </ProductItem>
+          </Details>
+        </Allowance>
+      XML
     end
   end
 
@@ -77,8 +95,13 @@ RSpec.describe Cetustek::CancelAllowance do
     expect(result).to eq('C0')
     expect(client).to have_received(:call) do |operation, message:|
       expect(operation).to eq(:cancel_allowance)
-      expect(message[:allowancexml]).to include('<AllowanceNumber>AA20130214163520</AllowanceNumber>')
-      expect(message[:allowancexml]).to include('<Reason>明細錯誤</Reason>')
+      expect(message[:allowancexml]).to eq(<<~XML)
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Allowance XSDVersion="2.8">
+          <AllowanceNumber>AA20130214163520</AllowanceNumber>
+          <Reason>明細錯誤</Reason>
+        </Allowance>
+      XML
     end
   end
 
