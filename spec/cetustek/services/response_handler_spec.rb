@@ -37,8 +37,8 @@ RSpec.describe Cetustek::Services::ResponseHandler do
     end
 
     it 'leaves every optional Table 8 field nil when the platform omits it' do
-      expect(process('{"msg":"Success","invnumber":"WB02100001"}')).to eq(
-        number: 'WB02100001', random_number: nil, date: nil, time: nil, sale_amount: nil,
+      expect(process('{"msg":"Success"}')).to eq(
+        number: nil, random_number: nil, date: nil, time: nil, sale_amount: nil,
         zero_amount: nil, free_amount: nil, tax_amount: nil, total_amount: nil, carrier_url: nil
       )
     end
@@ -58,6 +58,14 @@ RSpec.describe Cetustek::Services::ResponseHandler do
     it 'rejects a semicolon string that is not 15 characters' do
       expect { process('GT685145;9654') }.to raise_error(Cetustek::ResultError)
     end
+
+    it 'rejects a 15-character string with no semicolon in it' do
+      expect { process('GT685145439654X') }.to raise_error(Cetustek::ResultError, /GT685145439654X/)
+    end
+
+    it 'strips the whitespace the platform pads the body with' do
+      expect(process("  GT68514542;9654\n")).to eq(number: 'GT68514542', random_number: '9654')
+    end
   end
 
   describe 'result codes' do
@@ -75,6 +83,11 @@ RSpec.describe Cetustek::Services::ResponseHandler do
     it 'still raises the pre-0.7 error class' do
       expect { process('S1') }.to raise_error(described_class::InvalidResponseError)
     end
+  end
+
+  it 'raises the result code even with no logger configured' do
+    expect { described_class.new(response_with('S1'), data, '<Invoice/>').process }
+      .to raise_error(Cetustek::ResultError, /S1/)
   end
 
   describe 'logging' do

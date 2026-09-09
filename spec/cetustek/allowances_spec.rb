@@ -126,11 +126,17 @@ RSpec.describe Cetustek::Models::AllowanceData do
   end
 
   it 'requires the fields Table 15 marks 必填' do
-    expect { build_allowance_data(allowance_number: nil) }.to raise_error(ArgumentError, /allowance_number/)
-    expect { build_allowance_data(invoice_number: nil) }.to raise_error(ArgumentError, /invoice_number/)
-    expect { build_allowance_data(invoice_year: '') }.to raise_error(ArgumentError, /invoice_year/)
-    expect { build_allowance_data(reason: nil) }.to raise_error(ArgumentError, /reason/)
+    expect { described_class.new }.to raise_error(ArgumentError, 'allowance_number, invoice_number, invoice_year, reason required')
+    expect { build_allowance_data(allowance_number: nil) }.to raise_error(ArgumentError, 'allowance_number required')
+    expect { build_allowance_data(invoice_number: nil) }.to raise_error(ArgumentError, 'invoice_number required')
+    expect { build_allowance_data(invoice_year: '') }.to raise_error(ArgumentError, 'invoice_year required')
+    expect { build_allowance_data(reason: nil) }.to raise_error(ArgumentError, 'reason required')
     expect { build_allowance_data(items: []) }.to raise_error(ArgumentError, /items/)
+  end
+
+  it 'names allowance_date specifically when it is missing' do
+    expect { build_allowance_data(allowance_date: nil) }
+      .to raise_error(ArgumentError, 'allowance_date is required')
   end
 
   it 'rejects an allowance_date that is not a date, instead of failing at XML build time' do
@@ -147,7 +153,8 @@ RSpec.describe Cetustek::Models::AllowanceData do
     expect { build_allowance_data(round_num: 8) }.to raise_error(ArgumentError, /round_num/)
     # 'x'.to_i 是 0，而 0 是有效代碼 — 不用字串比對就會被當成合法值放行
     expect { build_allowance_data(round_num: 'x') }.to raise_error(ArgumentError, /round_num must be between/)
-    expect { build_allowance_data(tax_type: 'x') }.to raise_error(ArgumentError, /tax_type must be 1/)
+    expect { build_allowance_data(tax_type: 'x') }
+      .to raise_error(ArgumentError, /tax_type must be 1 \(應稅\), 2 \(零稅率\) or 3 \(免稅\), got "x"/)
     expect(build_allowance_data(round_num: 0).round_num).to eq(0)
   end
 end

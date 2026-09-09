@@ -27,6 +27,15 @@ RSpec.describe Cetustek::PhoneBarcode do
     expect(described_class.valid?('/K.1TB+P')).to be(false)
   end
 
+  # 平台漏回 isExist（或改欄位名）時要當作「查不到」，不是丟 KeyError
+  it 'is invalid when the platform answers without isExist at all' do
+    stub_request(:get, 'https://api.cetustek.com.tw/PhoneBar.php')
+      .with(query: hash_including(phonecode: '/K.1TI+P'))
+      .to_return(body: %({"code":"200","msg":"執行成功"}))
+
+    expect(described_class.valid?('/K.1TI+P')).to be(false)
+  end
+
   it 'exposes the full parsed response' do
     stub_phonebar('/K.1TI+P', 'Y')
     expect(described_class.new('/K.1TI+P').response).to include('code' => '200', 'isExist' => 'Y')
