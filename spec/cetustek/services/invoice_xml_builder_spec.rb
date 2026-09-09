@@ -12,6 +12,61 @@ RSpec.describe Cetustek::Services::InvoiceXmlBuilder do
     described_class.new(data).build
   end
 
+  # 一張全欄位發票的完整輸出：欄位名稱、順序與 Table 1 對照，少一個欄位或
+  # 順序跑掉這裡就會紅，比一堆 include 更擋得住。
+  describe 'the full Table 1/2 document' do
+    it 'emits every field the platform expects, in spec order' do
+      item = Cetustek::Models::InvoiceItem.new(code: '0001', name: '禮券', quantity: 2,
+                                               unit: '本', unit_price: 400)
+      xml = build(
+        buyer_address: '台北市', buyer_person_in_charge: '負責人', buyer_name: '買方',
+        buyer_telephone: '0212345678', buyer_facsimile: '0287654321', buyer_customer_number: 'C001',
+        donate_mark: 0, carrier_type: Cetustek::CarrierType::MOBILE_BARCODE, carrier_id: '/K.1TI+P',
+        npo_ban: '25885', tax_type: 2, tax_rate: 0, zero_reason: '71', payment_type: 'L',
+        remark: '備註', mail_send: 1, round_num: 2, items: [item]
+      )
+
+      expect(xml).to eq(<<~XML)
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Invoice XSDVersion="2.8">
+          <OrderId>ORD1</OrderId>
+          <OrderDate>2024/01/02</OrderDate>
+          <BuyerIdentifier>12345678</BuyerIdentifier>
+          <BuyerName>買方</BuyerName>
+          <BuyerAddress>台北市</BuyerAddress>
+          <BuyerPersonInCharge>負責人</BuyerPersonInCharge>
+          <BuyerTelephoneNumber>0212345678</BuyerTelephoneNumber>
+          <BuyerFacsimileNumber>0287654321</BuyerFacsimileNumber>
+          <BuyerEmailAddress>buyer@example.com</BuyerEmailAddress>
+          <BuyerCustomerNumber>C001</BuyerCustomerNumber>
+          <DonateMark>0</DonateMark>
+          <InvoiceType>07</InvoiceType>
+          <CarrierType>3J0002</CarrierType>
+          <CarrierId1>/K.1TI+P</CarrierId1>
+          <CarrierId2>/K.1TI+P</CarrierId2>
+          <NPOBAN>25885</NPOBAN>
+          <TaxType>2</TaxType>
+          <TaxRate>0</TaxRate>
+          <ZeroReason>71</ZeroReason>
+          <PayWay>L</PayWay>
+          <Remark>備註</Remark>
+          <MailSend>1</MailSend>
+          <RoundNum>2</RoundNum>
+          <RtnMsg>Json</RtnMsg>
+          <Details>
+            <ProductItem>
+              <ProductionCode>0001</ProductionCode>
+              <Description>禮券</Description>
+              <Quantity>2</Quantity>
+              <Unit>本</Unit>
+              <UnitPrice>400</UnitPrice>
+            </ProductItem>
+          </Details>
+        </Invoice>
+      XML
+    end
+  end
+
   describe 'TaxType' do
     it 'defaults to taxable (1) when not specified' do
       expect(build).to include('<TaxType>1</TaxType>')

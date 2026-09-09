@@ -35,6 +35,19 @@ RSpec.describe Cetustek::Services::ResponseHandler do
     it 'raises with the raw body when the JSON is truncated' do
       expect { process('{"msg":"Success"') }.to raise_error(Cetustek::ResultError, /"msg":"Success"/)
     end
+
+    it 'leaves every optional Table 8 field nil when the platform omits it' do
+      expect(process('{"msg":"Success","invnumber":"WB02100001"}')).to eq(
+        number: 'WB02100001', random_number: nil, date: nil, time: nil, sale_amount: nil,
+        zero_amount: nil, free_amount: nil, tax_amount: nil, total_amount: nil, carrier_url: nil
+      )
+    end
+
+    # JSON.parse('123') 回的是 Integer，不是 Hash — 沒有那個 '{' 開頭的判斷，
+    # 後面的 json['msg'] 會炸 TypeError 而不是回報結果代碼。
+    it 'treats a body that is not a JSON object as a result code' do
+      expect { process('123') }.to raise_error(Cetustek::ResultError, /123/)
+    end
   end
 
   describe 'plain string return' do
@@ -73,6 +86,12 @@ RSpec.describe Cetustek::Services::ResponseHandler do
     it 'logs the order id and invoice number on success, without the response body' do
       process('GT68514542;9654')
       expect(logger).to have_received(:info).with('CreateInvoiceV3 ORD1 GT68514542')
+    end
+
+    it 'has no XML to log when the handler was built without one' do
+      expect { process('S1') }.to raise_error(Cetustek::ResultError)
+      expect(logger).to have_received(:error).with('CreateInvoiceV3 ORD1 S1')
+      expect(logger).not_to have_received(:debug)
     end
 
     it 'logs the failing code and the XML only on failure' do

@@ -67,6 +67,11 @@ RSpec.describe Cetustek::QueryInvoice do
     it 'parses the response XML into a hash with seller/buyer/details' do
       result = described_class.find('AA00000027', '2024')
 
+      expect(client).to have_received(:call).with(
+        :query_invoice,
+        message: { invoicenumber: 'AA00000027', invoiceyear: '2024', source: 'SITEPASS', rentid: 'USER' }
+      )
+
       expect(result[:invoice_number]).to eq('AA00000027')
       expect(result[:invoice_status]).to eq('開立')
       expect(result[:seller]).to include(name: '鯨躍科技有限公司', email_address: 'invoice@cetustek.com.tw')
@@ -80,6 +85,15 @@ RSpec.describe Cetustek::QueryInvoice do
     it 'returns nil for an empty response or the documented "nodata"' do
       expect(described_class.parse(nil)).to be_nil
       expect(described_class.parse('nodata')).to be_nil
+    end
+
+    it 'leaves seller/buyer nil when the platform omits those blocks' do
+      result = described_class.parse('<Invoice><InvoiceNumber>AA00000027</InvoiceNumber></Invoice>')
+
+      expect(result[:invoice_number]).to eq('AA00000027')
+      expect(result[:seller]).to be_nil
+      expect(result[:buyer]).to be_nil
+      expect(result[:details]).to eq([])
     end
 
     it 'raises with the returned code when the answer is not XML' do
@@ -105,6 +119,12 @@ RSpec.describe Cetustek::QueryInvoiceNumberByOrderId do
       allow(response).to receive(:body)
         .and_return({ query_invoice_number_by_orderid_response: { return: 'AA00000027' } })
 
+      expect(described_class.find('ORD1')).to eq('AA00000027')
+    end
+
+    it 'strips the whitespace the platform pads the number with' do
+      allow(response).to receive(:body)
+        .and_return({ query_invoice_number_by_orderid_response: { return: "  AA00000027\n" } })
       expect(described_class.find('ORD1')).to eq('AA00000027')
     end
 
@@ -173,6 +193,11 @@ RSpec.describe Cetustek::QueryAllowance do
 
     it 'parses the response XML into a hash' do
       result = described_class.find('AA1411210027')
+
+      expect(client).to have_received(:call).with(
+        :query_allowance,
+        message: { allowancenumber: 'AA1411210027', source: 'SITEPASS', rentid: 'USER' }
+      )
 
       expect(result[:allowance_number]).to eq('AA1411210027')
       expect(result[:invoice_date]).to eq('2024/02/14')
