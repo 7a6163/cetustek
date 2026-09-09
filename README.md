@@ -368,7 +368,7 @@ Cetustek::PhoneBarcode.valid?('/ABC123')  # => true / false
 
 ## Requirements
 
-- Ruby >= 3.0.0
+- Ruby >= 3.3.0
 - `ox` gem for XML processing
 - `savon` gem for SOAP services
 
